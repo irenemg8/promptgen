@@ -247,7 +247,8 @@ export default function PromptGenPage() {
   }
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Comentado para evitar el scroll automático inicial
+    // messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history]);
 
   const copyToClipboard = (text: string) => {
