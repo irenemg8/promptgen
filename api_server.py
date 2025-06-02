@@ -81,7 +81,7 @@ class IdeaRequest(ModelNameRequest):
 
 # --- Endpoints de la API ---
 
-@app.post("/api/analyze_quality_bart")
+@app.post("/api/analyze_quality")
 async def api_analyze_quality(request_data: PromptRequest):
     """
     Analiza la calidad de un prompt dado utilizando el modelo BART MNLI.
@@ -97,11 +97,11 @@ async def api_analyze_quality(request_data: PromptRequest):
                  raise HTTPException(status_code=500, detail=result.get("error"))
         return result
     except Exception as e:
-        print(f"Error en el endpoint /api/analyze_quality_bart: {e}")
+        print(f"Error en el endpoint /api/analyze_quality: {e}")
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
 # Endpoints para las otras funcionalidades (usando placeholders por ahora)
-@app.post("/api/structural_feedback")
+@app.post("/api/get_feedback")
 async def api_structural_feedback(request_data: ModelNameRequest):
     if not request_data.prompt or not request_data.prompt.strip():
         raise HTTPException(status_code=400, detail="El prompt no puede estar vacío.")
@@ -111,7 +111,7 @@ async def api_structural_feedback(request_data: ModelNameRequest):
             raise HTTPException(status_code=500, detail=result.get("error"))
         return result
     except Exception as e:
-        print(f"Error en el endpoint /api/structural_feedback: {e}")
+        print(f"Error en el endpoint /api/get_feedback: {e}")
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
 @app.post("/api/generate_variations")
@@ -150,6 +150,6 @@ if __name__ == "__main__":
     # Para desarrollo, Uvicorn es una buena opción.
     # host="0.0.0.0" para que sea accesible desde fuera del contenedor si usas Docker, o desde la red local.
     # reload=True para que el servidor se reinicie automáticamente con los cambios en el código.
-    uvicorn.run("api_server:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("api_server:app", host="127.0.0.1", port=5000, reload=True)
     # Nota: 'api_server:app' se refiere al archivo api_server.py y la instancia 'app' de FastAPI dentro de él.
     # Necesitarás instalar FastAPI y Uvicorn: pip install fastapi "uvicorn[standard]" pydantic 

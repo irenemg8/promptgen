@@ -2,9 +2,9 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +23,11 @@ import {
   Wand2,
   Sun,
   Moon,
+  Lightbulb,
+  PenTool,
+  Brain,
+  MessageSquare,
+  CheckCircle,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
@@ -35,14 +40,17 @@ interface GeneratedPrompt {
   platform: string
   timestamp: Date
   files?: File[]
+  qualityReport?: string
+  interpretedKeywords?: string
+  structuralFeedback?: string
+  variations?: string[]
+  ideas?: string
 }
 
 const LLM_MODELS = [
-  { value: "gpt-4o", label: "GPT-4o", description: "Más avanzado y multimodal" },
-  { value: "claude-3.5-sonnet", label: "Claude 3.5 Sonnet", description: "Excelente para análisis y código" },
-  { value: "gemini-pro", label: "Gemini Pro", description: "Potente modelo de Google" },
-  { value: "llama-3.1", label: "Llama 3.1", description: "Modelo open source avanzado" },
-  { value: "grok-beta", label: "Grok Beta", description: "Modelo de xAI con humor" },
+  { value: "gpt2", label: "GPT-2", description: "Modelo de lenguaje para generación de texto (feedback, variaciones, ideas)." }
+  // BART (facebook/bart-large-mnli) se usa internamente para el análisis de calidad,
+  // pero no es una opción seleccionable por el usuario para las tareas de generación principal.
 ]
 
 const PLATFORMS = [
@@ -57,8 +65,8 @@ const PLATFORMS = [
 
 export default function PromptGenPage() {
   const [idea, setIdea] = useState("")
-  const [selectedModel, setSelectedModel] = useState("")
-  const [selectedPlatform, setSelectedPlatform] = useState("")
+  const [selectedModel, setSelectedModel] = useState("gpt2")
+  const [selectedPlatform, setSelectedPlatform] = useState("chatgpt")
   const [generatedPrompt, setGeneratedPrompt] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [history, setHistory] = useState<GeneratedPrompt[]>([])
@@ -67,6 +75,17 @@ export default function PromptGenPage() {
   const { toast } = useToast()
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
   const { theme, setTheme } = useTheme()
+
+  const messagesEndRef = useRef<null | HTMLDivElement>(null);
+
+  const [thinkingSteps, setThinkingSteps] = useState<string[]>([])
+  const [promptQuality, setPromptQuality] = useState<string | null>(null)
+  const [interpretedKeywords, setInterpretedKeywords] = useState<string | null>(null)
+  const [structuralFeedback, setStructuralFeedback] = useState<string | null>(null)
+  const [generatedVariations, setGeneratedVariations] = useState<string[]>([])
+  const [generatedIdeas, setGeneratedIdeas] = useState<string | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [currentGeneratedItem, setCurrentGeneratedItem] = useState<GeneratedPrompt | null>(null)
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
@@ -81,72 +100,155 @@ export default function PromptGenPage() {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const generatePrompt = async () => {
-    if (!idea.trim() || !selectedModel || !selectedPlatform) {
+  const API_BASE_URL = "http://localhost:5000/api"
+
+  const handleGenerateAndAnalyze = async () => {
+    if (!idea.trim()) {
       toast({
-        title: "Campos requeridos",
-        description: "Por favor completa todos los campos requeridos",
+        title: "Idea requerida",
+        description: "Por favor, introduce tu idea o prompt.",
         variant: "destructive",
       })
       return
     }
 
     setIsGenerating(true)
+    setIsAnalyzing(true)
+    setThinkingSteps([])
+    setPromptQuality(null)
+    setInterpretedKeywords(null)
+    setStructuralFeedback(null)
+    setGeneratedVariations([])
+    setGeneratedIdeas(null)
+    setGeneratedPrompt("")
+    setCurrentGeneratedItem(null)
 
-    // Simular generación de prompt (aquí integrarías con AI SDK)
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    const currentTimestamp = new Date()
+    const tempId = Date.now().toString()
+
+    const addThinkingStep = (step: string) => {
+      setThinkingSteps((prev) => [...prev, step])
+    }
+
+    // Variables para almacenar los resultados directos de las APIs
+    let qualityDataResponse: any = null;
+    let feedbackDataResponse: any = null;
+    let variationsDataResponse: any = null;
+    let ideasDataResponse: any = null;
+
+    addThinkingStep("Analizando la calidad del prompt inicial...")
+    try {
+      const qualityResponse = await fetch(`${API_BASE_URL}/analyze_quality`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: idea }),
+      })
+      if (!qualityResponse.ok) throw new Error("Error al analizar la calidad")
+      qualityDataResponse = await qualityResponse.json(); // Guardar respuesta directa
+      addThinkingStep("Calidad analizada. Palabras clave interpretadas: " + (qualityDataResponse?.interpreted_keywords || 'N/A'))
+    } catch (error) {
+      console.error("Error en análisis de calidad:", error)
+      toast({ title: "Error", description: "Fallo al analizar la calidad del prompt.", variant: "destructive" })
+      addThinkingStep("Error al analizar la calidad.")
+    }
+
+    addThinkingStep("Obteniendo feedback estructural...")
+    try {
+      const feedbackResponse = await fetch(`${API_BASE_URL}/get_feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: idea, model_name: selectedModel }),
+      })
+      if (!feedbackResponse.ok) throw new Error("Error al obtener feedback")
+      feedbackDataResponse = await feedbackResponse.json(); // Guardar respuesta directa
+      addThinkingStep("Feedback estructural recibido.")
+    } catch (error) {
+      console.error("Error en feedback estructural:", error)
+      toast({ title: "Error", description: "Fallo al obtener feedback estructural.", variant: "destructive" })
+      addThinkingStep("Error al obtener feedback estructural.")
+    }
+
+    addThinkingStep("Generando variaciones del prompt...")
+    try {
+      const variationsResponse = await fetch(`${API_BASE_URL}/generate_variations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: idea, model_name: selectedModel, num_variations: 3 }),
+      })
+      if (!variationsResponse.ok) throw new Error("Error al generar variaciones")
+      variationsDataResponse = await variationsResponse.json(); // Guardar respuesta directa
+      if (variationsDataResponse.variations && variationsDataResponse.variations.length > 0) {
+        setGeneratedPrompt(variationsDataResponse.variations[0])
+        addThinkingStep("Variaciones generadas. Mostrando la primera como prompt mejorado.")
+      } else {
+        addThinkingStep("No se pudieron generar variaciones claras.")
+        setGeneratedPrompt(idea)
+      }
+    } catch (error) {
+      console.error("Error en generación de variaciones:", error)
+      toast({ title: "Error", description: "Fallo al generar variaciones del prompt.", variant: "destructive" })
+      addThinkingStep("Error al generar variaciones.")
+    }
+
+    addThinkingStep("Generando ideas relacionadas...")
+    try {
+      const ideasResponse = await fetch(`${API_BASE_URL}/generate_ideas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: idea, model_name: selectedModel, num_ideas: 3 }),
+      })
+      if (!ideasResponse.ok) throw new Error("Error al generar ideas")
+      ideasDataResponse = await ideasResponse.json(); // Guardar respuesta directa
+      addThinkingStep("Ideas generadas.")
+    } catch (error) {
+      console.error("Error en generación de ideas:", error)
+      toast({ title: "Error", description: "Fallo al generar ideas.", variant: "destructive" })
+      addThinkingStep("Error al generar ideas.")
+    }
+    
+    addThinkingStep("Proceso completado.")
+    setIsGenerating(false)
+    setIsAnalyzing(false)
 
     const platformData = PLATFORMS.find((p) => p.value === selectedPlatform)
     const modelData = LLM_MODELS.find((m) => m.value === selectedModel)
+    
+    // Usar las respuestas directas de la API para construir newItem
+    const currentGeneratedPromptText = (variationsDataResponse?.variations && variationsDataResponse.variations.length > 0) 
+                                      ? variationsDataResponse.variations[0] 
+                                      : idea;
 
-    let prompt = ""
-
-    // Generar prompt específico según la plataforma
-    switch (selectedPlatform) {
-      case "chatgpt":
-        prompt = `Actúa como un experto en ${idea}. Proporciona una respuesta detallada y estructurada que incluya ejemplos prácticos, mejores prácticas y consideraciones importantes. Organiza tu respuesta de manera clara y profesional.`
-        break
-      case "cursor":
-        prompt = `Como desarrollador experto, ayúdame a implementar ${idea}. Incluye código limpio, comentarios explicativos, mejores prácticas de desarrollo y considera la escalabilidad y mantenibilidad del código.`
-        break
-      case "v0":
-        prompt = `Crea una interfaz moderna y responsive para ${idea}. Utiliza componentes de shadcn/ui, Tailwind CSS, y sigue las mejores prácticas de UX/UI. El diseño debe ser accesible y visualmente atractivo.`
-        break
-      case "sora":
-        prompt = `Genera un video que muestre ${idea}. Descripción visual detallada: estilo cinematográfico, iluminación profesional, movimientos de cámara fluidos, duración de 30-60 segundos, calidad 4K.`
-        break
-      case "claude":
-        prompt = `Analiza profundamente ${idea} desde múltiples perspectivas. Proporciona un análisis estructurado, considera pros y contras, implicaciones a largo plazo y recomendaciones basadas en evidencia.`
-        break
-      case "gemini":
-        prompt = `Explora ${idea} de manera integral. Incluye contexto histórico, estado actual, tendencias futuras y conexiones interdisciplinarias. Presenta la información de forma clara y bien organizada.`
-        break
-      case "firefly":
-        prompt = `Crea una imagen que represente ${idea}. Estilo: profesional, alta calidad, composición equilibrada, colores vibrantes, iluminación dramática, resolución 4K, formato 16:9.`
-        break
-    }
-
-    setGeneratedPrompt(prompt)
-
-    // Agregar al historial
-    const newPrompt: GeneratedPrompt = {
-      id: Date.now().toString(),
+    const newItem: GeneratedPrompt = {
+      id: tempId,
       originalIdea: idea,
-      generatedPrompt: prompt,
+      generatedPrompt: currentGeneratedPromptText, // Usar el prompt generado/original de esta ejecución
       model: modelData?.label || selectedModel,
       platform: platformData?.label || selectedPlatform,
-      timestamp: new Date(),
+      timestamp: currentTimestamp,
       files: uploadedFiles.length > 0 ? [...uploadedFiles] : undefined,
+      qualityReport: qualityDataResponse?.quality_report ?? undefined,
+      interpretedKeywords: qualityDataResponse?.interpreted_keywords ?? undefined,
+      structuralFeedback: feedbackDataResponse?.feedback ?? undefined,
+      variations: variationsDataResponse?.variations && variationsDataResponse.variations.length > 0 
+                  ? variationsDataResponse.variations 
+                  : undefined,
+      ideas: ideasDataResponse?.ideas ?? undefined,
     }
-
-    setHistory((prev) => [newPrompt, ...prev])
-    setIsGenerating(false)
+    
+    setCurrentGeneratedItem(newItem)
+    setHistory((prev) => [...prev, newItem])
 
     toast({
-      title: "¡Prompt generado!",
-      description: `Optimizado para ${platformData?.label} usando ${modelData?.label}`,
+      title: "¡Proceso completado!",
+      description: "Se ha analizado y mejorado el prompt.",
     })
+
+    setIdea("");
   }
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [history]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -331,11 +433,68 @@ export default function PromptGenPage() {
 
                     {/* Respuesta de la IA */}
                     <div className="flex justify-start">
-                      <div className="max-w-[80%] bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Zap className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />
-                          <span className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
-                            Prompt Generado
+                      <div className="max-w-[80%] bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3 space-y-3">
+                        {/* Thinking Steps - Solo para la generación actual si es el último item del historial */}
+                        { currentGeneratedItem && item.id === currentGeneratedItem.id && thinkingSteps.length > 0 && (
+                          <Card className="bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600">
+                            <CardHeader className="p-3">
+                              <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                                <Brain className="w-4 h-4" />
+                                Pensando...
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 text-xs">
+                              <ul className="space-y-1">
+                                {thinkingSteps.map((step, index) => (
+                                  <li key={index} className="flex items-center gap-2">
+                                    {index === thinkingSteps.length - 1 && (isAnalyzing || isGenerating) ? (
+                                        <div className="w-3 h-3 border-2 border-gray-300 dark:border-gray-400 border-t-blue-500 dark:border-t-blue-400 rounded-full animate-spin" />
+                                    ) : (
+                                        <CheckCircle className="w-3 h-3 text-green-500" />
+                                    )}
+                                    <span>{step}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {item.qualityReport && (
+                           <Card className="bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700">
+                            <CardHeader className="p-3">
+                              <CardTitle className="text-sm font-medium flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
+                                <Sparkles className="w-4 h-4" />
+                                Análisis de Calidad del Prompt
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 text-xs space-y-1">
+                              <p className="whitespace-pre-wrap">{item.qualityReport}</p>
+                              {(item.interpretedKeywords) && (
+                                <p><strong>Palabras Clave:</strong> {item.interpretedKeywords}</p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {item.structuralFeedback && (
+                          <Card className="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700">
+                            <CardHeader className="p-3">
+                              <CardTitle className="text-sm font-medium flex items-center gap-2 text-green-700 dark:text-green-500">
+                                <MessageSquare className="w-4 h-4" />
+                                Feedback Estructural
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 text-xs whitespace-pre-wrap">
+                              {item.structuralFeedback}
+                            </CardContent>
+                          </Card>
+                        )}
+                        
+                        <div className="flex items-center gap-2 mb-1 mt-2">
+                          <Zap className="w-4 h-4 text-purple-500 dark:text-purple-400" />
+                          <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                            Prompt Mejorado/Sugerido
                           </span>
                           <Button
                             variant="ghost"
@@ -349,6 +508,42 @@ export default function PromptGenPage() {
                         <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap text-sm">
                           {item.generatedPrompt}
                         </p>
+
+                        {item.variations && item.variations.length > 0 && (
+                          <Card className="bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-700">
+                            <CardHeader className="p-3">
+                              <CardTitle className="text-sm font-medium flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
+                                <PenTool className="w-4 h-4" />
+                                Otras Variaciones Sugeridas
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 text-xs space-y-1">
+                              {item.variations.map((variation, index) => (
+                                <div key={index} className="flex items-start gap-2 p-1.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-800/50">
+                                  <p className="flex-grow whitespace-pre-wrap">- {variation}</p>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={() => copyToClipboard(variation)}>
+                                    <Copy className="w-2.5 h-2.5" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {item.ideas && (
+                          <Card className="bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-700">
+                            <CardHeader className="p-3">
+                              <CardTitle className="text-sm font-medium flex items-center gap-2 text-pink-700 dark:text-pink-400">
+                                <Lightbulb className="w-4 h-4" />
+                                Ideas Generadas
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-3 text-xs whitespace-pre-wrap">
+                              {item.ideas}
+                            </CardContent>
+                          </Card>
+                        )}
+
                         <div className="flex items-center gap-2 mt-3">
                           <Badge
                             variant="secondary"
@@ -368,20 +563,22 @@ export default function PromptGenPage() {
                   </div>
                 ))}
 
-                {/* Mostrar mensaje de carga si está generando */}
-                {isGenerating && (
+                {/* Mostrar mensaje de carga si es una nueva generación y no hay historial O si es el primer item del historial y está generando */}
+                {(isGenerating || isAnalyzing) && history.length === 0 && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-400 border-t-cyan-500 dark:border-t-cyan-400 rounded-full animate-spin" />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Generando prompt...</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {isAnalyzing ? "Analizando y generando..." : "Procesando..."}
+                        </span>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Mensaje de bienvenida si no hay historial */}
-                {history.length === 0 && !isGenerating && (
+                {/* Mensaje de bienvenida si no hay historial y no se está generando nada */}
+                {history.length === 0 && !isGenerating && !isAnalyzing && (
                   <div className="text-center py-16">
                     <div className="relative mb-6">
                       <Wand2 className="w-16 h-16 mx-auto text-cyan-500 dark:text-cyan-400" />
@@ -393,6 +590,8 @@ export default function PromptGenPage() {
                     </p>
                   </div>
                 )}
+                {/* Elemento vacío para el auto-scroll */}
+                <div ref={messagesEndRef} />
               </div>
             </div>
 
@@ -488,7 +687,7 @@ export default function PromptGenPage() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault()
-                            generatePrompt()
+                            handleGenerateAndAnalyze()
                           }
                         }}
                       />
@@ -503,16 +702,17 @@ export default function PromptGenPage() {
                           <Upload className="w-4 h-4" />
                         </Button>
                         <Button
-                          onClick={generatePrompt}
-                          disabled={isGenerating || !idea.trim() || !selectedModel || !selectedPlatform}
-                          className="h-8 w-8 p-0 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Generar prompt (Enter)"
+                          variant="default"
+                          onClick={handleGenerateAndAnalyze}
+                          disabled={isGenerating || isAnalyzing || !idea.trim()}
+                          className="h-8 px-3 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white dark:from-cyan-400 dark:to-purple-500 dark:hover:from-cyan-500 dark:hover:to-purple-600 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-60 disabled:transform-none disabled:shadow-none"
                         >
-                          {isGenerating ? (
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          {isGenerating || isAnalyzing ? (
+                            <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin mr-2" />
                           ) : (
-                            <Sparkles className="w-4 h-4" />
+                            <Sparkles className="w-4 h-4 mr-2" />
                           )}
+                          {isAnalyzing ? "Analizando..." : (isGenerating ? "Generando..." : "Mejorar")}
                         </Button>
                       </div>
                       <input

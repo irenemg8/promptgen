@@ -1,4 +1,5 @@
 import os
+import json # Añadido para el manejo seguro de strings
 # Evitar un warning de tokenizers_parallelism que no es relevante para la inferencia básica
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -141,37 +142,45 @@ def get_structural_feedback(prompt_text: str, model_name: str = "GPT-2"):
         return {"error": f"Error al generar feedback: {str(e)}", "feedback": "Error", "keywords": "Error"}
 
 def generate_variations(prompt_text: str, model_name: str = "GPT-2", num_variations: int = 3):
+    print(f"[generate_variations] DEBUG: Argumento prompt_text recibido: '{prompt_text}'") # DEBUG
     if not text_generator_pipeline:
         return {"error": "Modelo generador de texto no cargado.", "variations": [], "keywords": "N/A"}
     if not prompt_text or not prompt_text.strip():
         return {"variations": ["El prompt está vacío."], "keywords": "N/A"}
 
+    # Uso de json.dumps para asegurar que el prompt_text se incluya de forma segura y entrecomillada
+    safe_prompt_original = json.dumps(prompt_text)
+
     system_prompt = (
-        f"Genera {num_variations} variaciones efectivas del siguiente prompt. "
-        f"Cada variación debe ser un prompt completo y usable, presentado en una nueva línea y comenzando con un guion. "
-        f"Prompt Original: \"""{prompt_text}""\n"
+        f"Genera {num_variations} variaciones creativas y efectivas del siguiente prompt.\n"
+        f"Intenta modificar el prompt original cambiando el enfoque, añadiendo detalles específicos, reformulándolo para mayor claridad, o sugiriendo alternativas que exploren diferentes ángulos del mismo tema.\n"
+        f"Cada variación debe ser un prompt completo y usable, presentado en una nueva línea y comenzando con un guion.\n"
+        f"Evita repetir el prompt original exacto como una de las variaciones, a menos que todas las demás sean sustancialmente diferentes.\n"
+        f"Prompt Original: {safe_prompt_original}\n"  # Usando la variable segura
         f"Variaciones Sugeridas:\n- "
     )
+    print(f"[generate_variations] System Prompt para GPT-2:\n{system_prompt}") # DEBUG
+
     try:
         eos_token_id = text_generator_pipeline.tokenizer.eos_token_id if text_generator_pipeline.tokenizer.eos_token_id is not None else 50256
 
         generated_outputs = text_generator_pipeline(
             system_prompt,
-            max_new_tokens=60 * num_variations, 
+            max_new_tokens=70 * num_variations, # Un poco más de espacio por si las variaciones son más largas
             num_return_sequences=1, 
             pad_token_id=text_generator_pipeline.tokenizer.pad_token_id if text_generator_pipeline.tokenizer.pad_token_id is not None else eos_token_id,
             eos_token_id=eos_token_id,
-            temperature=0.75,
+            temperature=0.8, # AUMENTADO: de 0.75 a 0.8 para más diversidad
             top_k=50,
             top_p=0.95,
             no_repeat_ngram_size=2
         )
         full_generated_text = generated_outputs[0]['generated_text']
+        print(f"[generate_variations] Texto completo generado por GPT-2 (raw):\n{full_generated_text}") # DEBUG
+        
         variations_block = "- " + full_generated_text[len(system_prompt):].strip()
         
-        # Parseo simplificado: cada línea no vacía después del guion es una variación
         variations = [v.strip() for v in variations_block.split('\n- ') if v.strip()]
-        # Quitar el primer guion si es necesario y luego los guiones de las líneas siguientes
         cleaned_variations = []
         for var in variations:
             cleaned_var = var.lstrip('- ').strip()
@@ -179,6 +188,7 @@ def generate_variations(prompt_text: str, model_name: str = "GPT-2", num_variati
                  cleaned_variations.append(cleaned_var)
         
         variations = cleaned_variations[:num_variations]
+        print(f"[generate_variations] Variaciones parseadas y limpiadas:\n{variations}") # DEBUG
                    
         keywords = [model_name.lower(), "variaciones", "generación"]
         return {"variations": variations if variations else ["No se pudieron generar variaciones claras."], "keywords": ", ".join(keywords)}
