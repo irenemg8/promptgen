@@ -261,7 +261,7 @@ export default function PromptGenPage() {
   const clearHistory = () => {
     setHistory([])
     toast({
-      title: "Historial limpiado",
+      title: "Historial borrado",
       description: "Todos los prompts han sido eliminados",
     })
   }
