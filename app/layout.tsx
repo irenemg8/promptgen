@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/toaster"
@@ -13,8 +13,12 @@ export const metadata: Metadata = {
     "Transforma tus ideas en prompts optimizados para ChatGPT, Claude, v0, Sora y más plataformas de IA. Diseño moderno con tendencias 2025.",
   keywords: "prompt generator, AI, ChatGPT, Claude, v0, Sora, Gemini, Adobe Firefly, artificial intelligence",
   authors: [{ name: "PromptGen Team" }],
-  viewport: "width=device-width, initial-scale=1",
-    generator: 'v0.dev'
+  generator: 'v0.dev'
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({
