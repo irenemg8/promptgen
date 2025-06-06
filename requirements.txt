@@ -1,0 +1,20 @@
+# Framework del servidor
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+
+# Machine Learning & Transformers (Modelos Locales)
+torch
+transformers
+sentencepiece
+accelerate
+bitsandbytes
+# La siguiente librería es para el análisis de calidad con BART
+sentence-transformers
+
+# APIs de Modelos de Lenguaje
+openai
+anthropic
+google-generativeai
+groq 

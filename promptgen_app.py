@@ -1,308 +1,310 @@
 import os
-import json # Añadido para el manejo seguro de strings
-# Evitar un warning de tokenizers_parallelism que no es relevante para la inferencia básica
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+from dotenv import load_dotenv
+import torch
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from sentence_transformers import SentenceTransformer, util
+import numpy as np
+import warnings
+import re
 
-from transformers import pipeline
-import torch # Es bueno importarlo para verificar si CUDA está disponible si se quiere usar GPU
+# --- Nuevas importaciones para APIs ---
+import openai
+import anthropic
+import google.generativeai as genai
+from groq import Groq
 
-# --- Carga de Modelos (Hacerlo una vez) ---
-# Usamos un diccionario para cargar los modelos bajo demanda o al inicio.
-# Por ahora, cargaremos BART directamente.
-device = 0 if torch.cuda.is_available() else -1 # 0 para GPU, -1 para CPU
+# --- Configuración de APIs ---
+load_dotenv()
+
+# Configura los clientes de las API. Si la clave no está, el cliente no se crea.
+try:
+    openai_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+except Exception as e:
+    openai_client = None
+    print(f"Advertencia: No se pudo inicializar el cliente de OpenAI. Error: {e}")
 
 try:
-    quality_analyzer_pipeline = pipeline(
-        "zero-shot-classification",
-        model="facebook/bart-large-mnli",
-        device=device
-    )
-    print(f"Modelo BART (quality_analyzer) cargado en: {'GPU' if device == 0 else 'CPU'}")
+    anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 except Exception as e:
-    print(f"Error al cargar el modelo BART (quality_analyzer): {e}")
+    anthropic_client = None
+    print(f"Advertencia: No se pudo inicializar el cliente de Anthropic. Error: {e}")
+
+try:
+    if os.getenv("GOOGLE_API_KEY"):
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        google_client = genai.GenerativeModel('gemini-1.5-flash-latest')
+    else:
+        google_client = None
+except Exception as e:
+    google_client = None
+    print(f"Advertencia: No se pudo inicializar el cliente de Google Gemini. Error: {e}")
+
+try:
+    groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+except Exception as e:
+    groq_client = None
+    print(f"Advertencia: No se pudo inicializar el cliente de Groq. Error: {e}")
+
+# Ignorar advertencias específicas de transformers
+warnings.filterwarnings("ignore", category=FutureWarning, module="transformers.models.bart.modeling_bart")
+
+# --- Carga de Modelos Locales ---
+# Diccionario para cachear los pipelines de modelos locales
+local_pipelines = {}
+active_local_model_name = None
+
+def get_local_text_generation_pipeline(model_name="gpt2", force_reload=False):
+    global active_local_model_name
+    
+    if model_name in local_pipelines and not force_reload and active_local_model_name == model_name:
+        return local_pipelines[model_name]
+
+    print(f"Cargando el modelo local: {model_name}...")
+    
+    # Liberar memoria de la GPU si hay un modelo cargado
+    if active_local_model_name and active_local_model_name in local_pipelines:
+        print(f"Liberando memoria del modelo anterior: {active_local_model_name}")
+        del local_pipelines[active_local_model_name]
+        torch.cuda.empty_cache()
+
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+        
+        # Para modelos más grandes, usar cuantización para reducir el uso de memoria
+        if "7b" in model_name.lower() or "6.7b" in model_name.lower():
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.bfloat16
+            )
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                device_map="auto",
+                quantization_config=bnb_config,
+                trust_remote_code=True
+            )
+        else: # Modelos más pequeños no necesitan cuantización obligatoriamente
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                trust_remote_code=True
+            ).to('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Asegurarse de que el token de padding está definido
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+            model.config.pad_token_id = model.config.eos_token_id
+
+        pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
+        local_pipelines[model_name] = pipe
+        active_local_model_name = model_name
+        
+        print(f"Modelo local '{model_name}' cargado exitosamente.")
+        return pipe
+    except Exception as e:
+        print(f"Error crítico al cargar el modelo local '{model_name}': {e}")
+        local_pipelines[model_name] = None
+        return None
+
+# Carga del modelo para análisis de calidad (BART)
+try:
+    print("Cargando modelo de análisis de calidad (BART MNLI)...")
+    quality_analyzer_pipeline = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+    print("Modelo de análisis de calidad cargado.")
+except Exception as e:
+    print(f"Error al cargar el modelo de análisis de calidad: {e}")
     quality_analyzer_pipeline = None
 
+# Carga del modelo para similitud semántica (opcional, para palabras clave)
 try:
-    # Usaremos distilgpt2 para las tareas de generación por ser más ligero
-    # Podríamos cambiar a "gpt2" o "t5-small"/	5-base" si se necesita más potencia o capacidades diferentes
-    text_generator_pipeline = pipeline(
-        "text-generation", 
-        model="gpt2",
-        device=device,
-        # Es crucial establecer pad_token_id si el modelo no lo tiene por defecto o si es igual a eos_token_id
-        # Para GPT-2, eos_token_id (50256) se usa a menudo como pad_token_id si no hay uno específico.
-        pad_token_id=50256 # pipeline intentará usar tokenizer.eos_token_id si es None
-    )
-    print(f"Modelo GPT-2 (text_generator) cargado en: {'GPU' if device == 0 else 'CPU'}")
+    print("Cargando modelo de similitud semántica...")
+    similarity_model = SentenceTransformer('all-MiniLM-L6-v2')
+    print("Modelo de similitud semántica cargado.")
 except Exception as e:
-    print(f"Error al cargar el modelo GPT-2 (text_generator): {e}")
-    text_generator_pipeline = None
+    print(f"Error al cargar el modelo de similitud semántica: {e}")
+    similarity_model = None
 
-# Definición de etiquetas para la calidad del prompt
-QUALITY_CANDIDATE_LABELS = [
-    "prompt claro y específico",
-    "prompt bien formulado",
-    "prompt necesita más detalles",
-    "prompt vago o ambiguo",
-    "prompt podría ser más conciso",
-    "prompt accionable y directo",
-    "prompt creativo e inspirador"
-]
+# --- Lógica de Generación y Análisis (Refactorizada) ---
 
-# --- Funciones de Lógica de Modelos ---
-
-def analyze_prompt_quality_bart(prompt_text: str):
-    if not quality_analyzer_pipeline:
-        return {
-            "error": "Modelo de análisis de calidad no cargado.",
-            "quality_report": "N/A",
-            "interpreted_keywords": "N/A"
-        }
-    if not prompt_text or not prompt_text.strip():
-        return {
-            "quality_report": "El prompt está vacío.",
-            "interpreted_keywords": "N/A"
-        }
-
+def call_api_model(model_name, system_prompt, user_prompt, max_tokens=500):
+    """Función para llamar a los diferentes clientes de API."""
     try:
-        # Realizar la clasificación zero-shot
-        results = quality_analyzer_pipeline(prompt_text, QUALITY_CANDIDATE_LABELS, multi_label=True)
-        
-        # Formatear el reporte de calidad
-        quality_report_parts = ["Calidad del Prompt (Análisis con BART-MNLI):"]
-        scores_for_report = []
+        if model_name.startswith("api/gpt"):
+            if not openai_client: return "Error: Cliente de OpenAI no configurado."
+            model_id = model_name.split('/')[1]
+            response = openai_client.chat.completions.create(
+                model=f"gpt-3.5-turbo" if model_id == "gpt-3.5-turbo" else "gpt-4o", # Asegurar modelo correcto
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+                max_tokens=max_tokens,
+            )
+            return response.choices[0].message.content
 
-        for label, score in zip(results['labels'], results['scores']):
-            scores_for_report.append(f"- {label}: {score:.2%}")
+        elif model_name.startswith("api/claude"):
+            if not anthropic_client: return "Error: Cliente de Anthropic no configurado."
+            model_id = model_name.split('/')[1].replace('-', '_') # ej. claude-3-5-sonnet -> claude_3_5_sonnet
+            response = anthropic_client.messages.create(
+                model=f"claude-3-haiku-20240307" if "haiku" in model_id else "claude-3-5-sonnet-20240620",
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+                max_tokens=max_tokens,
+            )
+            return response.content[0].text
         
-        quality_report_parts.extend(sorted(scores_for_report, key=lambda x: float(x.split(": ")[1].replace('%','')), reverse=True))
+        elif model_name.startswith("api/gemini"):
+            if not google_client: return "Error: Cliente de Google Gemini no configurado."
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+            response = google_client.generate_content(full_prompt)
+            return response.text
+
+        elif model_name.startswith("api/groq"):
+            if not groq_client: return "Error: Cliente de Groq no configurado."
+            model_id = 'llama3-8b-8192' # Mapear nuestro nombre al de Groq
+            response = groq_client.chat.completions.create(
+                model=model_id,
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+                max_tokens=max_tokens,
+            )
+            return response.choices[0].message.content
+            
+        else:
+            return f"Error: Modelo API '{model_name}' no reconocido."
+
+    except Exception as e:
+        return f"Error al llamar a la API para el modelo {model_name}: {e}"
+
+def generate_text_dispatcher(model_name, prompt, max_length=150):
+    """Despachador que decide si usar un modelo local o una API."""
+    if model_name.startswith("api/"):
+        # Para las APIs, el prompt puede ser más complejo (system + user)
+        # Aquí simplificamos y lo pasamos directamente. Las funciones específicas construirán el prompt completo.
+        return call_api_model(model_name, "Eres un asistente experto en la creación de prompts.", prompt)
+    else:
+        # Lógica para modelos locales
+        pipe = get_local_text_generation_pipeline(model_name)
+        if pipe is None:
+            return {"error": f"Modelo local '{model_name}' no pudo ser cargado."}
         
-        # "Palabras clave interpretadas" serán las etiquetas con mayor puntuación
-        # Tomamos las top 3 etiquetas como "palabras clave interpretadas"
-        interpreted_keywords = [label for label, score in sorted(zip(results['labels'], results['scores']), key=lambda x: x[1], reverse=True)[:3]]
+        # Algunos modelos usan un formato de prompt específico
+        if "instruct" in model_name.lower() or "chat" in model_name.lower():
+            # Formato simple para modelos instruct/chat
+            full_prompt = f"### Instruction:\n{prompt}\n\n### Response:"
+        else:
+            full_prompt = prompt
+
+        try:
+            sequences = pipe(
+                full_prompt,
+                max_new_tokens=max_length,
+                num_return_sequences=1,
+                eos_token_id=pipe.tokenizer.eos_token_id,
+                pad_token_id=pipe.tokenizer.pad_token_id,
+                do_sample=True,
+                top_k=50,
+                top_p=0.95,
+                temperature=0.7,
+            )
+            # Limpiar la salida para quitar el prompt original
+            generated_text = sequences[0]['generated_text']
+            # Encontrar el inicio de la respuesta
+            response_start = generated_text.find("### Response:")
+            if response_start != -1:
+                cleaned_text = generated_text[response_start + len("### Response:"):].strip()
+            else:
+                # Para modelos que no usan el formato, quitar el prompt inicial
+                cleaned_text = generated_text[len(full_prompt):].strip()
+            return cleaned_text
+        except Exception as e:
+            return {"error": f"Error durante la generación de texto con '{model_name}': {str(e)}"}
+
+# --- Funciones de la API (Endpoint Logic) ---
+
+def analyze_prompt_quality_bart(prompt: str):
+    if quality_analyzer_pipeline is None:
+        return {"error": "Modelo de análisis de calidad no cargado."}
+    
+    candidate_labels = ["claro y específico", "ambiguo y vago", "demasiado corto", "demasiado largo", "bien estructurado", "mal estructurado", "creativo", "técnico"]
+    try:
+        analysis = quality_analyzer_pipeline(prompt, candidate_labels, multi_label=True)
+        scores = dict(zip(analysis['labels'], np.round(analysis['scores'], 2)))
+        
+        # Interpretación simple
+        report = f"Análisis de calidad para el prompt:\n"
+        report += f"- Claridad y especificidad: {scores.get('claro y específico', 0)*100:.0f}%\n"
+        report += f"- Ambigüedad: {scores.get('ambiguo y vago', 0)*100:.0f}%\n"
+        report += f"- Potencial creativo: {scores.get('creativo', 0)*100:.0f}%\n"
+        report += f"- Estructura: {scores.get('bien estructurado', 0)*100:.0f}%\n"
+
+        # Extracción de palabras clave (usando un método simple y el modelo de similitud)
+        keywords = "N/A"
+        if similarity_model:
+            try:
+                # Usar regex para encontrar "palabras" y luego el modelo para encontrar las más significativas
+                words = list(set(re.findall(r'\b\w+\b', prompt.lower())))
+                if len(words) > 1:
+                    prompt_embedding = similarity_model.encode(prompt, convert_to_tensor=True)
+                    word_embeddings = similarity_model.encode(words, convert_to_tensor=True)
+                    similarities = util.pytorch_cos_sim(prompt_embedding, word_embeddings)[0]
+                    # Tomar las 5 palabras con mayor similitud al prompt completo
+                    top_indices = torch.topk(similarities, k=min(5, len(words))).indices
+                    keywords = ", ".join([words[i] for i in top_indices])
+            except Exception as e:
+                keywords = f"Error en extracción: {e}"
 
         return {
-            "quality_report": "\n".join(quality_report_parts),
-            "interpreted_keywords": ", ".join(interpreted_keywords)
+            "quality_report": report,
+            "interpreted_keywords": keywords,
+            "raw_scores": scores
         }
     except Exception as e:
-        print(f"Error durante el análisis de calidad: {e}")
-        return {
-            "error": f"Error durante el análisis: {str(e)}",
-            "quality_report": "Error al procesar.",
-            "interpreted_keywords": "Error al procesar."
-        }
+        return {"error": f"Error en análisis de calidad: {str(e)}"}
 
-def get_structural_feedback(prompt_text: str, model_name: str = "GPT-2"):
-    if not text_generator_pipeline:
-        return {"error": "Modelo generador de texto no cargado.", "feedback": "N/A", "keywords": "N/A"}
-    if not prompt_text or not prompt_text.strip():
-        return {"feedback": "El prompt está vacío.", "keywords": "N/A"}
-
-    system_prompt = (
-        f"Analiza la estructura del siguiente prompt y ofrece feedback constructivo y conciso sobre su claridad, especificidad y si es accionable para una IA. "
-        f"Proporciona únicamente el feedback en formato de lista, donde cada punto comience con un guion (-). No incluyas encabezados, introducciones, conclusiones ni ningún otro texto fuera de la lista de feedback. "
-        f"Evita generar URLs o cualquier contenido no relacionado con el análisis estructural del prompt. "
-        f"Prompt a analizar: \\\"\"\"{prompt_text}\"\"\\n"
-        f"Feedback Estructural Detallado:\\n- " # Mantenemos el inicio con guion para guiar al modelo
-    )
-    try:
-        # Usar eos_token_id del tokenizer si está disponible
-        eos_token_id = text_generator_pipeline.tokenizer.eos_token_id if text_generator_pipeline.tokenizer.eos_token_id is not None else 50256
+def get_structural_feedback(prompt: str, model_name: str = "gpt2"):
+    system_prompt = "Eres un experto en ingeniería de prompts. Analiza el siguiente prompt de usuario y proporciona feedback conciso y accionable para mejorarlo. Céntrate en la estructura, claridad y elementos que podrían faltar. No generes un nuevo prompt, solo da el feedback. Sé breve, usa viñetas."
+    user_prompt = f"Analiza este prompt y dame feedback para mejorarlo:\n\n---\n{prompt}\n---"
+    
+    feedback = generate_text_dispatcher(model_name, user_prompt)
+    if isinstance(feedback, dict) and 'error' in feedback:
+        return {"error": feedback['error']}
         
-        generated_outputs = text_generator_pipeline(
-            system_prompt,
-            max_new_tokens=100, # Reducido para feedback más conciso
-            num_return_sequences=1,
-            pad_token_id=text_generator_pipeline.tokenizer.pad_token_id if text_generator_pipeline.tokenizer.pad_token_id is not None else eos_token_id,
-            eos_token_id=eos_token_id,
-            no_repeat_ngram_size=2, 
-            temperature=0.7,
-            top_k=50
-        )
-        # Extraer solo el texto generado después del prompt de sistema
-        full_generated_text = generated_outputs[0]['generated_text']
-        feedback_text = "- " + full_generated_text[len(system_prompt):].strip()
+    return {"feedback": feedback}
+
+def generate_variations(prompt: str, model_name: str = "gpt2", num_variations: int = 3):
+    system_prompt = f"Eres un asistente de IA experto en reescribir y mejorar prompts. Dado el siguiente prompt, genera {num_variations} variaciones mejoradas y creativas. Cada variación debe ser distinta. Devuelve solo las variaciones, una por línea, sin numeración ni texto adicional."
+    user_prompt = f"Genera {num_variations} variaciones mejoradas para este prompt:\n\n---\n{prompt}\n---"
+
+    response_text = generate_text_dispatcher(model_name, user_prompt, max_length=150 * num_variations)
+    if isinstance(response_text, dict) and 'error' in response_text:
+        return {"error": response_text['error']}
+
+    # Limpiar y separar las variaciones
+    variations = [v.strip() for v in response_text.split('\n') if v.strip() and not v.strip().startswith('-')]
+    # Si el split falla, puede que el modelo devuelva una lista numerada, intentar limpiarla
+    if len(variations) < num_variations:
+        variations = [re.sub(r'^\d+\.\s*', '', v).strip() for v in response_text.split('\n') if v.strip()]
+
+    return {"variations": variations[:num_variations]}
+
+def generate_ideas(prompt: str, model_name: str = "gpt2", num_ideas: int = 3):
+    system_prompt = f"Eres un generador de ideas creativo. Basándote en el siguiente concepto o prompt, genera una lista de {num_ideas} ideas relacionadas o conceptos derivados. Sé conciso y presenta las ideas claramente, separadas por saltos de línea y sin numeración."
+    user_prompt = f"Basado en este concepto, genera {num_ideas} ideas nuevas:\n\n---\n{prompt}\n---"
+
+    ideas_text = generate_text_dispatcher(model_name, user_prompt, max_length=100 * num_ideas)
+    if isinstance(ideas_text, dict) and 'error' in ideas_text:
+        return {"error": ideas_text['error']}
         
-        # Limpieza básica para remover cualquier repetición del prompt o encabezados no deseados
-        feedback_text = feedback_text.split("Prompt a analizar:")[0].strip() # Mejorado para quitar repetición del prompt
-        feedback_text = feedback_text.split("Feedback Estructural Detallado:")[0].strip() # Mejorado
-        feedback_text = feedback_text.split("http://")[0].split("https://")[0].strip() # Eliminar URLs
-        
-        # Asegurar que el feedback no esté vacío y comience con un guion si es posible
-        if not feedback_text or not feedback_text.strip() or feedback_text.strip() == "-":
-            feedback_text = "No se pudo generar feedback estructural claro."
-        elif not feedback_text.startswith("-"):
-            feedback_text = "- " + feedback_text
+    return {"ideas": ideas_text}
 
-        keywords = [model_name.lower(), "feedback", "estructura"]
-        return {"feedback": feedback_text if feedback_text and feedback_text.strip() != "-" else "No se pudo generar feedback.", "keywords": ", ".join(keywords)}
-    except Exception as e:
-        print(f"Error en get_structural_feedback: {e}")
-        return {"error": f"Error al generar feedback: {str(e)}", "feedback": "Error", "keywords": "Error"}
+def main():
+    print("Módulo promptgen_app cargado. Funciones listas para ser usadas por el servidor API.")
+    # Prueba rápida opcional
+    # test_model = "gpt2" # o "api/gpt-3.5-turbo"
+    # test_prompt = "crea una imagen de un astronauta montando un caballo en marte"
+    # print(f"\n--- Probando Feedback con {test_model} ---")
+    # print(get_structural_feedback(test_prompt, model_name=test_model))
+    # print(f"\n--- Probando Variaciones con {test_model} ---")
+    # print(generate_variations(test_prompt, model_name=test_model))
+    # print(f"\n--- Probando Ideas con {test_model} ---")
+    # print(generate_ideas(test_prompt, model_name=test_model))
 
-def generate_variations(prompt_text: str, model_name: str = "GPT-2", num_variations: int = 3):
-    print(f"[generate_variations] DEBUG: Argumento prompt_text recibido: '{prompt_text}'") # DEBUG
-    if not text_generator_pipeline:
-        return {"error": "Modelo generador de texto no cargado.", "variations": [], "keywords": "N/A"}
-    if not prompt_text or not prompt_text.strip():
-        return {"variations": ["El prompt está vacío."], "keywords": "N/A"}
-
-    # Uso de json.dumps para asegurar que el prompt_text se incluya de forma segura y entrecomillada
-    safe_prompt_original = json.dumps(prompt_text)
-
-    system_prompt = (
-        f"Genera {num_variations} variaciones creativas y efectivas del siguiente prompt.\n"
-        f"Intenta modificar el prompt original cambiando el enfoque, añadiendo detalles específicos, reformulándolo para mayor claridad, o sugiriendo alternativas que exploren diferentes ángulos del mismo tema.\n"
-        f"Cada variación debe ser un prompt completo y usable, presentado en una nueva línea y comenzando con un guion.\n"
-        f"Evita repetir el prompt original exacto como una de las variaciones, a menos que todas las demás sean sustancialmente diferentes.\n"
-        f"Prompt Original: {safe_prompt_original}\n"  # Usando la variable segura
-        f"Variaciones Sugeridas:\n- "
-    )
-    print(f"[generate_variations] System Prompt para GPT-2:\n{system_prompt}") # DEBUG
-
-    try:
-        eos_token_id = text_generator_pipeline.tokenizer.eos_token_id if text_generator_pipeline.tokenizer.eos_token_id is not None else 50256
-
-        generated_outputs = text_generator_pipeline(
-            system_prompt,
-            max_new_tokens=70 * num_variations, # Un poco más de espacio por si las variaciones son más largas
-            num_return_sequences=1, 
-            pad_token_id=text_generator_pipeline.tokenizer.pad_token_id if text_generator_pipeline.tokenizer.pad_token_id is not None else eos_token_id,
-            eos_token_id=eos_token_id,
-            temperature=0.8, # AUMENTADO: de 0.75 a 0.8 para más diversidad
-            top_k=50,
-            top_p=0.95,
-            no_repeat_ngram_size=2
-        )
-        full_generated_text = generated_outputs[0]['generated_text']
-        print(f"[generate_variations] Texto completo generado por GPT-2 (raw):\n{full_generated_text}") # DEBUG
-        
-        variations_block = "- " + full_generated_text[len(system_prompt):].strip()
-        
-        variations = [v.strip() for v in variations_block.split('\n- ') if v.strip()]
-        cleaned_variations = []
-        for var in variations:
-            cleaned_var = var.lstrip('- ').strip()
-            if cleaned_var:
-                 cleaned_variations.append(cleaned_var)
-        
-        variations = cleaned_variations[:num_variations]
-        print(f"[generate_variations] Variaciones parseadas y limpiadas:\n{variations}") # DEBUG
-                   
-        keywords = [model_name.lower(), "variaciones", "generación"]
-        return {"variations": variations if variations else ["No se pudieron generar variaciones claras."], "keywords": ", ".join(keywords)}
-    except Exception as e:
-        print(f"Error en generate_variations: {e}")
-        return {"error": f"Error al generar variaciones: {str(e)}", "variations": [], "keywords": "Error"}
-
-def generate_ideas(prompt_text: str, model_name: str = "GPT-2", num_ideas: int = 3):
-    if not text_generator_pipeline:
-        return {"error": "Modelo generador de texto no cargado.", "ideas": "N/A", "keywords": "N/A"}
-    if not prompt_text or not prompt_text.strip():
-        return {"ideas": "El prompt está vacío.", "keywords": "N/A"}
-
-    system_prompt = (
-        f"Genera {num_ideas} ideas creativas basadas en el siguiente tema/prompt. "
-        f"Cada idea debe ser concisa, en una nueva línea, y comenzar con un guion. "
-        f"Tema/Prompt: \"""{prompt_text}""\n"
-        f"Ideas Sugeridas:\n- "
-    )
-    try:
-        eos_token_id = text_generator_pipeline.tokenizer.eos_token_id if text_generator_pipeline.tokenizer.eos_token_id is not None else 50256
-        
-        generated_outputs = text_generator_pipeline(
-            system_prompt,
-            max_new_tokens=40 * num_ideas, 
-            num_return_sequences=1, 
-            pad_token_id=text_generator_pipeline.tokenizer.pad_token_id if text_generator_pipeline.tokenizer.pad_token_id is not None else eos_token_id,
-            eos_token_id=eos_token_id,
-            temperature=0.8,
-            top_k=50,
-            no_repeat_ngram_size=2
-        )
-        full_generated_text = generated_outputs[0]['generated_text']
-        ideas_block = "- " + full_generated_text[len(system_prompt):].strip()
-
-        ideas_list = [idea.strip() for idea in ideas_block.split('\n- ') if idea.strip()]
-        cleaned_ideas = []
-        for idea_item in ideas_list:
-            cleaned_item = idea_item.lstrip('- ').strip()
-            if cleaned_item:
-                cleaned_ideas.append(cleaned_item)
-
-        ideas_list = cleaned_ideas[:num_ideas]
-        ideas_text = "\n".join(ideas_list) if ideas_list else "No se pudieron generar ideas claras."
-
-        keywords = [model_name.lower(), "ideas", "generación"]
-        return {"ideas": ideas_text, "keywords": ", ".join(keywords)}
-    except Exception as e:
-        print(f"Error en generate_ideas: {e}")
-        return {"error": f"Error al generar ideas: {str(e)}", "ideas": "Error", "keywords": "Error"}
-
-# --- Ejemplo de uso de las funciones directamente (sin API) ---
 if __name__ == '__main__':
-    print("--- Iniciando Pruebas Directas de Funciones de promptgen_app.py ---")
-    # Test de Calidad (BART)
-    if quality_analyzer_pipeline:
-        test_prompt_quality = "Describe una escena de batalla épica entre dragones y unicornios en un castillo flotante."
-        print(f"\nProbando análisis de calidad para: '{test_prompt_quality}'")
-        analysis_result = analyze_prompt_quality_bart(test_prompt_quality)
-        print("Reporte de Calidad:")
-        print(analysis_result.get("quality_report"))
-        print("Palabras Clave Interpretadas (Calidad):", analysis_result.get("interpreted_keywords"))
-
-        test_prompt_vago = "cosas"
-        print(f"\nProbando análisis de calidad para: '{test_prompt_vago}'")
-        analysis_result_vago = analyze_prompt_quality_bart(test_prompt_vago)
-        print("Reporte de Calidad:")
-        print(analysis_result_vago.get("quality_report"))
-        print("Palabras Clave Interpretadas (Calidad):", analysis_result_vago.get("interpreted_keywords"))
-    else:
-        print("\nquality_analyzer_pipeline no disponible. Sáltandose pruebas de calidad.")
-
-    # Tests de Generación (GPT-2)
-    if text_generator_pipeline:
-        print("\n--- Pruebas con text_generator_pipeline (GPT-2) ---")
-
-        test_prompt_feedback = "Escribe una historia sobre un perro que viaja en el tiempo."
-        print(f"\nProbando feedback estructural para: '{test_prompt_feedback}'")
-        feedback_result = get_structural_feedback(test_prompt_feedback)
-        print("Feedback Estructural:", feedback_result.get("feedback"))
-        
-        test_prompt_variations = "Crea un eslogan publicitario para una nueva bebida energética natural."
-        print(f"\nProbando generación de variaciones para: '{test_prompt_variations}' (pidiendo 3)")
-        variations_result = generate_variations(test_prompt_variations, num_variations=3)
-        print("Variaciones Generadas:")
-        if isinstance(variations_result.get("variations"), list):
-            for i, var in enumerate(variations_result.get("variations")):
-                print(f"{i+1}. {var}")
-        else:
-            print(variations_result.get("variations"))
-
-        test_prompt_ideas = "Formas innovadoras de usar la realidad aumentada en el turismo."
-        print(f"\nProbando generación de ideas para: '{test_prompt_ideas}' (pidiendo 3)")
-        ideas_result = generate_ideas(test_prompt_ideas, num_ideas=3)
-        print("Ideas Generadas:") # Esperamos un string con ideas separadas por 
-
-        print(ideas_result.get("ideas"))
-
-        print("\n--- Prueba Adicional Variaciones (Plan de marketing) --- ")
-        variations_result_2 = generate_variations("Plan de marketing para el lanzamiento de un nuevo videojuego indie de puzzles.", num_variations=2)
-        print("Prompt: Plan de marketing para el lanzamiento de un nuevo videojuego indie de puzzles.")
-        print("Variaciones:")
-        if isinstance(variations_result_2.get("variations"), list):
-            for i, var in enumerate(variations_result_2.get("variations")):
-                print(f"{i+1}. {var}")
-        else:
-            print(variations_result_2.get("variations"))
-
-
-        print("\n--- Prueba Adicional Ideas (Productividad) --- ")
-        ideas_result_2 = generate_ideas("Cómo los equipos remotos pueden mejorar la colaboración y la comunicación.", num_ideas=4)
-        print("Prompt: Cómo los equipos remotos pueden mejorar la colaboración y la comunicación.")
-        print("Ideas:")
-        print(ideas_result_2.get("ideas"))
-    else:
-        print("\ntext_generator_pipeline no disponible. Sáltandose pruebas de generación.")
-    print("\n--- Pruebas Directas Finalizadas ---") 
+    main() 

@@ -48,9 +48,17 @@ interface GeneratedPrompt {
 }
 
 const LLM_MODELS = [
-  { value: "gpt2", label: "GPT-2", description: "Modelo de lenguaje para generación de texto (feedback, variaciones, ideas)." }
-  // BART (facebook/bart-large-mnli) se usa internamente para el análisis de calidad,
-  // pero no es una opción seleccionable por el usuario para las tareas de generación principal.
+  // --- Modelos Locales (Ligeros) ---
+  { value: "gpt2", label: "GPT-2 (Local)", description: "124M params. Rápido, calidad base, se descarga localmente." },
+  { value: "distilgpt2", label: "DistilGPT-2 (Local)", description: "82M params. Versión más ligera de GPT-2, ideal para pruebas." },
+  { value: "EleutherAI/gpt-neo-125M", label: "GPT-Neo 125M (Local)", description: "125M params. Alternativa a GPT-2, se descarga localmente." },
+  // --- Modelos vía API (Requieren API Key) ---
+  { value: "api/gpt-4o", label: "OpenAI: GPT-4o (API)", description: "El modelo más avanzado de OpenAI. Requiere API Key." },
+  { value: "api/gpt-3.5-turbo", label: "OpenAI: GPT-3.5 Turbo (API)", description: "Rápido y económico. Requiere API Key de OpenAI." },
+  { value: "api/claude-3-5-sonnet", label: "Anthropic: Claude 3.5 Sonnet (API)", description: "El modelo más nuevo y potente de Anthropic. Requiere API Key." },
+  { value: "api/claude-3-haiku", label: "Anthropic: Claude 3 Haiku (API)", description: "El modelo más rápido y compacto de Anthropic. Requiere API Key." },
+  { value: "api/gemini-1.5-flash", label: "Google: Gemini 1.5 Flash (API)", description: "Modelo rápido y multimodal de Google. Requiere API Key." },
+  { value: "api/groq-llama3-8b", label: "Groq: Llama 3 8B (API)", description: "Versión de Llama 3 8B en la rapidísima API de Groq. Requiere API Key." },
 ]
 
 const PLATFORMS = [
@@ -652,7 +660,10 @@ export default function PromptGenPage() {
                                 value={model.value}
                                 className="text-gray-900 dark:text-white text-xs"
                               >
-                                {model.label}
+                                <div className="flex flex-col items-start">
+                                  <span>{model.label}</span>
+                                  <span className="text-gray-500 dark:text-gray-400 text-xs">{model.description}</span>
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectContent>
