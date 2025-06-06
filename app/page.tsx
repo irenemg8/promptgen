@@ -31,6 +31,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
+import Link from "next/link"
 
 interface GeneratedPrompt {
   id: string
@@ -255,7 +256,8 @@ export default function PromptGenPage() {
   }
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Comentado para evitar el scroll automático inicial
+    // messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history]);
 
   const copyToClipboard = (text: string) => {
@@ -269,7 +271,7 @@ export default function PromptGenPage() {
   const clearHistory = () => {
     setHistory([])
     toast({
-      title: "Historial limpiado",
+      title: "Historial borrado",
       description: "Todos los prompts han sido eliminados",
     })
   }
@@ -756,12 +758,12 @@ export default function PromptGenPage() {
             </div>
 
             <div className="flex items-center gap-6 text-sm">
-              <a
+              <Link
                 href="/privacy-policy"
                 className="text-gray-600 hover:text-cyan-500 dark:text-gray-400 dark:hover:text-cyan-400 transition-colors"
               >
                 Política de Privacidad
-              </a>
+              </Link>
               <Separator orientation="vertical" className="h-4 bg-gray-300 dark:bg-gray-700" />
               <p className="text-gray-500 dark:text-gray-500">© 2025 PromptGen. Todos los derechos reservados.</p>
             </div>

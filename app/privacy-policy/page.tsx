@@ -36,154 +36,126 @@ export default function PrivacyPolicyPage() {
               <Shield className="w-5 h-5 text-green-400" />
               Política de Privacidad de Datos
             </CardTitle>
-            <p className="text-gray-400">Última actualización: 1 de enero de 2025</p>
+            <p className="text-gray-400">Última actualización: 15 de julio de 2023</p>
           </CardHeader>
           <CardContent className="space-y-6 text-gray-300">
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-3">1. Información que Recopilamos</h2>
+            <section className="bg-green-900/20 border border-green-700/30 rounded-lg p-4">
+              <h2 className="text-xl font-semibold text-green-400 mb-3">Compromiso de No Almacenamiento de Datos</h2>
               <div className="space-y-2 text-sm">
-                <p>En PromptGen, recopilamos la siguiente información:</p>
-                <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>Ideas y conceptos que ingresas para generar prompts</li>
-                  <li>Archivos que subes (imágenes, videos, documentos)</li>
-                  <li>Historial de prompts generados</li>
-                  <li>Preferencias de modelos y plataformas seleccionadas</li>
-                  <li>Información técnica básica (dirección IP, navegador, dispositivo)</li>
-                </ul>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-3">2. Cómo Utilizamos tu Información</h2>
-              <div className="space-y-2 text-sm">
-                <p>Utilizamos la información recopilada para:</p>
-                <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>Generar prompts personalizados y optimizados</li>
-                  <li>Mantener tu historial de prompts generados</li>
-                  <li>Mejorar nuestros algoritmos de generación</li>
-                  <li>Proporcionar soporte técnico cuando sea necesario</li>
-                  <li>Analizar el uso de la plataforma para mejoras</li>
-                </ul>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-3">3. Almacenamiento y Seguridad</h2>
-              <div className="space-y-2 text-sm">
-                <p>Nos comprometemos a proteger tu información:</p>
-                <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>Los datos se almacenan de forma segura en servidores cifrados</li>
-                  <li>Utilizamos protocolos HTTPS para todas las comunicaciones</li>
-                  <li>El acceso a los datos está restringido al personal autorizado</li>
-                  <li>Realizamos copias de seguridad regulares para prevenir pérdida de datos</li>
-                  <li>Los archivos subidos se procesan y almacenan temporalmente</li>
-                </ul>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-3">4. Compartir Información</h2>
-              <div className="space-y-2 text-sm">
-                <p>No vendemos, alquilamos ni compartimos tu información personal con terceros, excepto:</p>
-                <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>Cuando sea requerido por ley o autoridades competentes</li>
-                  <li>Para proteger nuestros derechos legales o la seguridad de usuarios</li>
-                  <li>
-                    Con proveedores de servicios que nos ayudan a operar la plataforma (bajo estrictos acuerdos de
-                    confidencialidad)
-                  </li>
-                  <li>En caso de fusión, adquisición o venta de activos (con notificación previa)</li>
-                </ul>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-3">5. Tus Derechos</h2>
-              <div className="space-y-2 text-sm">
-                <p>Tienes derecho a:</p>
-                <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>Acceder a tu información personal almacenada</li>
-                  <li>Solicitar la corrección de datos inexactos</li>
-                  <li>Eliminar tu cuenta y datos asociados</li>
-                  <li>Exportar tu historial de prompts</li>
-                  <li>Limitar el procesamiento de tus datos</li>
-                  <li>Retirar el consentimiento en cualquier momento</li>
-                </ul>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-3">6. Cookies y Tecnologías Similares</h2>
-              <div className="space-y-2 text-sm">
-                <p>Utilizamos cookies y tecnologías similares para:</p>
-                <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>Mantener tu sesión activa</li>
-                  <li>Recordar tus preferencias de configuración</li>
-                  <li>Analizar el uso de la plataforma</li>
-                  <li>Mejorar la experiencia del usuario</li>
-                </ul>
-                <p className="mt-2">Puedes gestionar las cookies desde la configuración de tu navegador.</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-3">7. Retención de Datos</h2>
-              <div className="space-y-2 text-sm">
-                <p>Conservamos tu información durante:</p>
-                <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>El tiempo que mantengas tu cuenta activa</li>
-                  <li>Hasta 30 días después de la eliminación de la cuenta (para recuperación)</li>
-                  <li>El tiempo requerido por obligaciones legales</li>
-                  <li>Los archivos subidos se eliminan automáticamente después de 7 días</li>
-                </ul>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold text-white mb-3">8. Menores de Edad</h2>
-              <div className="space-y-2 text-sm">
+                <p className="font-medium">
+                  En PromptGen, nos comprometemos firmemente a proteger tu privacidad. <span className="text-white font-bold">No almacenamos, guardamos ni retenemos ningún dato</span> que ingreses o generes en nuestra plataforma.
+                </p>
                 <p>
-                  PromptGen no está dirigido a menores de 13 años. No recopilamos conscientemente información personal
-                  de menores de 13 años. Si descubrimos que hemos recopilado información de un menor, la eliminaremos
-                  inmediatamente.
+                  Toda la información procesada en PromptGen es temporal y se elimina completamente cuando cierras la aplicación o refrescas la página. No mantenemos bases de datos de usuarios ni registros de actividad.
                 </p>
               </div>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">9. Cambios en esta Política</h2>
+              <h2 className="text-xl font-semibold text-white mb-3">1. Información que NO Recopilamos</h2>
               <div className="space-y-2 text-sm">
-                <p>
-                  Podemos actualizar esta política de privacidad ocasionalmente. Te notificaremos sobre cambios
-                  significativos mediante:
-                </p>
+                <p>PromptGen opera bajo un principio de privacidad completa:</p>
                 <ul className="list-disc list-inside space-y-1 ml-4">
-                  <li>Notificación en la plataforma</li>
-                  <li>Email (si proporcionaste uno)</li>
-                  <li>Actualización de la fecha de "última actualización"</li>
+                  <li>No guardamos las ideas o conceptos que ingresas para generar prompts</li>
+                  <li>No almacenamos archivos que se suben a la plataforma</li>
+                  <li>No conservamos historial de prompts generados en nuestros servidores</li>
+                  <li>No creamos perfiles de usuario ni guardamos preferencias</li>
+                  <li>No recopilamos información personal identificable</li>
                 </ul>
               </div>
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold text-white mb-3">10. Contacto</h2>
+              <h2 className="text-xl font-semibold text-white mb-3">2. Procesamiento Local y Temporal</h2>
+              <div className="space-y-2 text-sm">
+                <p>Todo el procesamiento en PromptGen funciona de la siguiente manera:</p>
+                <ul className="list-disc list-inside space-y-1 ml-4">
+                  <li>Los datos ingresados se procesan temporalmente solo durante la sesión activa</li>
+                  <li>El historial de prompts se guarda únicamente en la memoria local de tu navegador</li>
+                  <li>Toda la información se elimina al cerrar la aplicación o refrescar la página</li>
+                  <li>Los archivos nunca se cargan a servidores externos</li>
+                  <li>No utilizamos servicios de análisis que rastreen tu actividad</li>
+                </ul>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold text-white mb-3">3. Seguridad de Datos</h2>
+              <div className="space-y-2 text-sm">
+                <p>Aunque no almacenamos datos, garantizamos la seguridad durante el uso:</p>
+                <ul className="list-disc list-inside space-y-1 ml-4">
+                  <li>Conexiones cifradas mediante HTTPS para todas las comunicaciones</li>
+                  <li>Procesamiento de prompts en tiempo real sin persistencia de datos</li>
+                  <li>Sin acceso de terceros a tu información durante la sesión</li>
+                  <li>Protocolo de borrado automático de datos temporales</li>
+                </ul>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold text-white mb-3">4. Datos del Navegador</h2>
+              <div className="space-y-2 text-sm">
+                <p>La única información que puede permanecer en tu dispositivo:</p>
+                <ul className="list-disc list-inside space-y-1 ml-4">
+                  <li>Preferencias de tema (claro/oscuro) guardadas en localStorage</li>
+                  <li>Datos de sesión temporal mientras la aplicación está abierta</li>
+                  <li>Caché temporal del navegador para mejorar el rendimiento</li>
+                </ul>
+                <p className="mt-2">Puedes eliminar estos datos en cualquier momento limpiando la caché y el almacenamiento local de tu navegador.</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold text-white mb-3">5. Sin Cookies de Seguimiento</h2>
               <div className="space-y-2 text-sm">
                 <p>
-                  Si tienes preguntas sobre esta política de privacidad o el manejo de tus datos, puedes contactarnos:
+                  PromptGen no utiliza cookies de seguimiento ni tecnologías similares para monitorear tu actividad. No analizamos patrones de uso ni creamos perfiles de comportamiento.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold text-white mb-3">6. Sin Compartición de Datos</h2>
+              <div className="space-y-2 text-sm">
+                <p>
+                  No compartimos ninguna información con terceros por una simple razón: no recopilamos ni almacenamos datos que se puedan compartir.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold text-white mb-3">7. Accesibilidad Local</h2>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Si deseas conservar los prompts generados, deberás copiarlos manualmente, ya que no se guardan automáticamente después de cerrar la aplicación.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold text-white mb-3">8. Cambios en esta Política</h2>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Cualquier cambio futuro en esta política respetará siempre nuestro compromiso de no almacenar datos. Las actualizaciones se publicarán en esta página.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold text-white mb-3">9. Contacto</h2>
+              <div className="space-y-2 text-sm">
+                <p>
+                  Si tienes preguntas sobre esta política de privacidad, puedes contactarnos:
                 </p>
                 <ul className="list-disc list-inside space-y-1 ml-4">
                   <li>Email: privacy@promptgen.com</li>
-                  <li>Dirección: [Tu dirección de empresa]</li>
-                  <li>Teléfono: [Tu número de contacto]</li>
                 </ul>
               </div>
             </section>
 
-            <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700 mt-8">
+            <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700/30 mt-8">
               <p className="text-sm text-gray-400">
-                <strong className="text-white">Nota importante:</strong> Esta política de privacidad se rige por las
-                leyes de protección de datos aplicables, incluyendo GDPR (Europa) y CCPA (California). Nos comprometemos
-                a cumplir con todas las regulaciones de privacidad relevantes.
+                <strong className="text-white">Resumen:</strong> PromptGen es una herramienta que respeta completamente tu privacidad. No almacenamos, compartimos ni analizamos ninguna información que proporciones o generes. Todos los datos son temporales y se eliminan automáticamente al finalizar tu sesión.
               </p>
             </div>
           </CardContent>
