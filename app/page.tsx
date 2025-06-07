@@ -267,10 +267,18 @@ export default function PromptGenPage() {
   }, [history]);
 
   const copyToClipboard = (text: string) => {
+    if (!text?.trim()) {
+      toast({
+        title: "Nada que copiar",
+        description: "El prompt mejorado aún no está disponible.",
+        variant: "destructive",
+      })
+      return
+    }
     navigator.clipboard.writeText(text)
     toast({
       title: "Copiado",
-      description: "Prompt copiado al portapapeles",
+      description: "Prompt mejorado copiado al portapapeles.",
     })
   }
 
@@ -403,7 +411,9 @@ export default function PromptGenPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => copyToClipboard(item.generatedPrompt)}
-                                className="h-6 w-6 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                                disabled={!item.generatedPrompt}
+                                className="h-6 w-6 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white disabled:opacity-50"
+                                title="Copiar prompt mejorado"
                               >
                                 <Copy className="w-3 h-3" />
                               </Button>
