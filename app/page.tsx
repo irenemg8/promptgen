@@ -549,20 +549,22 @@ export default function PromptGenPage() {
                         title="Prompt Mejorado/Sugerido"
                         icon={<Zap className="w-4 h-4 text-purple-500 dark:text-purple-400" />}
                         titleClassName="text-purple-600 dark:text-purple-400"
-                        actions={
+                        className="bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700"
+                      >
+                        <div className="relative">
+                          <p className="pr-8 text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap text-sm">
+                            {item.generatedPrompt}
+                          </p>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => copyToClipboard(item.generatedPrompt)}
-                            className="h-6 w-6 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                            className="absolute bottom-0 right-0 h-6 w-6 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                            title="Copiar prompt mejorado"
                           >
                             <Copy className="w-3 h-3" />
                           </Button>
-                        }
-                      >
-                        <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap text-sm">
-                          {item.generatedPrompt}
-                        </p>
+                        </div>
                       </CollapsibleCard>
 
                       {item.variations && item.variations.length > 1 && (
