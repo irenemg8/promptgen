@@ -14,19 +14,14 @@ if current_dir not in sys.path:
 
 # Intentar importar las funciones de lógica de promptgen_app
 try:
-    from promptgen_app import (
-        analyze_prompt_quality_bart,
-        get_structural_feedback,
-        generate_variations,
-        generate_ideas
-    )
-    # También es buena idea asegurarse de que el pipeline principal está cargado
-    # o al menos que promptgen_app.py lo maneje al ser importado.
-    # En promptgen_app.py, quality_analyzer_pipeline se carga globalmente.
-    from promptgen_app import quality_analyzer_pipeline
-    if quality_analyzer_pipeline is None:
-        print("ADVERTENCIA: El pipeline de análisis de calidad de promptgen_app no parece estar cargado.")
-        # Podrías intentar cargarlo aquí si es necesario, pero es mejor que promptgen_app.py lo maneje.
+    from promptgen_real import (
+    analyze_prompt_quality_bart,
+    get_structural_feedback,
+    generate_variations,
+    generate_ideas
+)
+    print("✅ Funciones importadas exitosamente desde promptgen_core.py")
+    print("🤖 Usando el sistema corregido sin mockups")
 except ImportError as e:
     print(f"Error al importar desde promptgen_app.py: {e}")
     print("Asegúrate de que promptgen_app.py está en el mismo directorio o en el PYTHONPATH.")
