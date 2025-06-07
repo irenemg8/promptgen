@@ -30,11 +30,13 @@ import {
   CheckCircle,
   ArrowDown,
   Loader2,
+  X,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
 import Link from "next/link"
 import { CollapsibleCard } from "@/components/ui/collapsible-card"
+import { cn } from "@/lib/utils"
 
 interface GeneratedPrompt {
   id: string
@@ -83,6 +85,7 @@ export default function PromptGenPage() {
   const [mounted, setMounted] = useState(false)
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+  const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false)
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null)
@@ -337,37 +340,70 @@ export default function PromptGenPage() {
               </div>
             </div>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="h-9 w-9 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors duration-200"
-              title={mounted ? (theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro") : "Cambiar tema"}
-            >
-              {mounted ? (
-                theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />
-              ) : (
-                <div className="w-5 h-5" /> // Placeholder mientras se carga
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="lg:hidden h-9 w-9 p-0"
+                onClick={() => setIsMobileHistoryOpen(true)}
+                title="Ver historial"
+              >
+                <History className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="h-9 w-9 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors duration-200"
+                title={mounted ? (theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro") : "Cambiar tema"}
+              >
+                {mounted ? (
+                  theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />
+                ) : (
+                  <div className="w-5 h-5" /> // Placeholder mientras se carga
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="flex h-[calc(100vh-76px)]">
-        {/* Sidebar - Historial (similar a ChatGPT) */}
+        {/* Mobile History Sidebar Overlay */}
+        {isMobileHistoryOpen && (
+          <div
+            className="lg:hidden fixed inset-0 z-40 bg-black/50"
+            onClick={() => setIsMobileHistoryOpen(false)}
+          />
+        )}
+
+        {/* Sidebar - Historial */}
         <div
-          className={`${isSidebarMinimized ? "w-16" : "w-80"} border-r border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/80 overflow-hidden hidden lg:block transition-all duration-300`}
+          className={cn(
+            "transition-all duration-300 ease-in-out overflow-hidden bg-gray-50/80 dark:bg-gray-900/80 border-r border-gray-200 dark:border-gray-800",
+            "fixed inset-y-0 left-0 z-50 w-80", // Mobile base styles
+            isMobileHistoryOpen ? "translate-x-0" : "-translate-x-full", // Mobile animation
+            "lg:static lg:w-auto lg:translate-x-0", // Desktop overrides
+            isSidebarMinimized ? "lg:w-16" : "lg:w-80" // Desktop minimized state
+          )}
         >
           <div className="p-4 h-full">
             <div className="flex items-center mb-4">
-              {!isSidebarMinimized && (
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                  <History className="w-4 h-4 text-green-500 dark:text-green-400" />
-                  Historial
-                </h2>
-              )}
-              <div className={`flex items-center gap-1 ${!isSidebarMinimized ? "ml-auto" : "w-full justify-center"}`}>
+              <div
+                className={cn(
+                  "flex-grow flex items-center gap-2",
+                  isSidebarMinimized && "justify-center"
+                )}
+              >
+                <History className="w-4 h-4 text-green-500 dark:text-green-400" />
+                {!isSidebarMinimized && (
+                  <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Historial
+                  </h2>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1">
                 {!isSidebarMinimized && history.length > 0 && (
                   <Button
                     variant="ghost"
@@ -383,7 +419,7 @@ export default function PromptGenPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsSidebarMinimized(!isSidebarMinimized)}
-                  className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                  className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hidden lg:inline-flex"
                   title={isSidebarMinimized ? "Expandir historial" : "Minimizar historial"}
                 >
                   {isSidebarMinimized ? (
@@ -395,6 +431,15 @@ export default function PromptGenPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsMobileHistoryOpen(false)}
+                  className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white lg:hidden"
+                  title="Cerrar historial"
+                >
+                  <X className="w-4 h-4" />
                 </Button>
               </div>
             </div>
@@ -743,7 +788,9 @@ export default function PromptGenPage() {
                             >
                               <div className="flex flex-col items-start">
                                 <span>{model.label}</span>
-                                <span className="text-gray-500 dark:text-gray-400 text-xs">{model.description}</span>
+                                <span className="hidden lg:block text-gray-500 dark:text-gray-400 text-xs">
+                                  {model.description}
+                                </span>
                               </div>
                             </SelectItem>
                           ))}
