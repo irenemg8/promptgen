@@ -28,6 +28,7 @@ import {
   Brain,
   MessageSquare,
   CheckCircle,
+  ArrowDown,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
@@ -79,8 +80,10 @@ export default function PromptGenPage() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false)
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
   const [thinkingSteps, setThinkingSteps] = useState<string[]>([])
   const [promptQuality, setPromptQuality] = useState<string | null>(null)
@@ -95,6 +98,24 @@ export default function PromptGenPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  const handleScroll = () => {
+    const container = chatContainerRef.current
+    if (container) {
+      const { scrollTop, scrollHeight, clientHeight } = container
+      // Show button if user has scrolled up from the bottom (with a threshold)
+      setShowScrollToBottom(scrollHeight - scrollTop > clientHeight + 20)
+    }
+  }
+
+  useEffect(() => {
+    // Auto-scroll to bottom on new messages
+    scrollToBottom()
+  }, [history])
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
@@ -434,342 +455,356 @@ export default function PromptGenPage() {
         </div>
 
         {/* Área principal de contenido */}
-        <div className="flex-1 overflow-auto">
-          <div className="h-full flex flex-col">
-            {/* Área de conversación */}
-            <div className="flex-1 overflow-auto px-4 py-8">
-              <div className="max-w-4xl mx-auto space-y-6">
-                {/* Mostrar historial de conversación */}
-                {history.map((item) => (
-                  <div key={item.id} className="space-y-4">
-                    {/* Mensaje del usuario */}
-                    <div className="flex justify-end">
-                      <div className="max-w-[80%] bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-2xl px-4 py-3">
-                        <p className="text-sm">{item.originalIdea}</p>
-                        {item.files && item.files.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {item.files.map((file, index) => (
-                              <Badge key={index} variant="secondary" className="bg-white/20 text-white text-xs">
-                                {getFileIcon(file)}
-                                <span className="ml-1">{file.name}</span>
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1 mt-2 text-xs opacity-75">
-                          <span>{item.model}</span>
-                          <span>•</span>
-                          <span>{item.platform}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Respuesta de la IA */}
-                    {item.generatedPrompt && (
-                    <div className="flex justify-start">
-                      <div className="max-w-[80%] bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3 space-y-3">
-                        {/* Thinking Steps - Solo para la generación actual si es el último item del historial */}
-                        { currentGeneratedItem && item.id === currentGeneratedItem.id && thinkingSteps.length > 0 && (
-                          <Card className="bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600">
-                            <CardHeader className="p-3">
-                              <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                                <Brain className="w-4 h-4" />
-                                Pensando...
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-3 text-xs">
-                              <ul className="space-y-1">
-                                {thinkingSteps.map((step, index) => (
-                                  <li key={index} className="flex items-center gap-2">
-                                    {index === thinkingSteps.length - 1 && (isAnalyzing || isGenerating) ? (
-                                        <div className="w-3 h-3 border-2 border-gray-300 dark:border-gray-400 border-t-blue-500 dark:border-t-blue-400 rounded-full animate-spin" />
-                                    ) : (
-                                        <CheckCircle className="w-3 h-3 text-green-500" />
-                                    )}
-                                    <span>{step}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </CardContent>
-                          </Card>
-                        )}
-
-                        {item.qualityReport && (
-                           <Card className="bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700">
-                            <CardHeader className="p-3">
-                              <CardTitle className="text-sm font-medium flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
-                                <Sparkles className="w-4 h-4" />
-                                Análisis de Calidad del Prompt
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-3 text-xs space-y-1">
-                              <p className="whitespace-pre-wrap">{item.qualityReport}</p>
-                              {(item.interpretedKeywords) && (
-                                <p><strong>Palabras Clave:</strong> {item.interpretedKeywords}</p>
-                              )}
-                            </CardContent>
-                          </Card>
-                        )}
-
-                        {item.structuralFeedback && (
-                          <Card className="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700">
-                            <CardHeader className="p-3">
-                              <CardTitle className="text-sm font-medium flex items-center gap-2 text-green-700 dark:text-green-500">
-                                <MessageSquare className="w-4 h-4" />
-                                Feedback Estructural
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-3 text-xs whitespace-pre-wrap">
-                              {item.structuralFeedback}
-                            </CardContent>
-                          </Card>
-                        )}
-                        
-                        <div className="flex items-center gap-2 mb-1 mt-2">
-                          <Zap className="w-4 h-4 text-purple-500 dark:text-purple-400" />
-                          <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
-                            Prompt Mejorado/Sugerido
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(item.generatedPrompt)}
-                            className="h-6 w-6 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white ml-auto"
-                          >
-                            <Copy className="w-3 h-3" />
-                          </Button>
-                        </div>
-                        <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap text-sm">
-                          {item.generatedPrompt}
-                        </p>
-
-                        {item.variations && item.variations.length > 0 && (
-                          <Card className="bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-700">
-                            <CardHeader className="p-3">
-                              <CardTitle className="text-sm font-medium flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
-                                <PenTool className="w-4 h-4" />
-                                Otras Variaciones Sugeridas
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-3 text-xs space-y-1">
-                              {item.variations.map((variation, index) => (
-                                <div key={index} className="flex items-start gap-2 p-1.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-800/50">
-                                  <p className="flex-grow whitespace-pre-wrap">- {variation}</p>
-                                  <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={() => copyToClipboard(variation)}>
-                                    <Copy className="w-2.5 h-2.5" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </CardContent>
-                          </Card>
-                        )}
-
-                        {item.ideas && Array.isArray(item.ideas) && item.ideas.length > 0 && (
-                          <Card className="bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-700">
-                            <CardHeader className="p-3">
-                              <CardTitle className="text-sm font-medium flex items-center gap-2 text-pink-700 dark:text-pink-400">
-                                <Lightbulb className="w-4 h-4" />
-                                Ideas Generadas
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-3 text-xs space-y-1">
-                              <ul className="list-disc list-inside">
-                                {item.ideas.map((idea, index) => (
-                                  <li key={index}>{idea}</li>
-                                ))}
-                              </ul>
-                            </CardContent>
-                          </Card>
-                        )}
-
-                        <div className="flex items-center gap-2 mt-3">
-                          <Badge
-                            variant="secondary"
-                            className="bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 text-xs"
-                          >
-                            {item.platform}
-                          </Badge>
-                          <Badge
-                            variant="secondary"
-                            className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 text-xs"
-                          >
-                            {item.model}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* Mostrar mensaje de carga si es una nueva generación y no hay historial O si es el primer item del historial y está generando */}
-                {(isGenerating || isAnalyzing) && history.length === 0 && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[80%] bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-400 border-t-cyan-500 dark:border-t-cyan-400 rounded-full animate-spin" />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {isAnalyzing ? "Analizando y generando..." : "Procesando..."}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Mensaje de bienvenida si no hay historial y no se está generando nada */}
-                {history.length === 0 && !isGenerating && !isAnalyzing && (
-                  <div className="text-center py-16">
-                    <div className="relative mb-6">
-                      <Wand2 className="w-16 h-16 mx-auto text-cyan-500 dark:text-cyan-400" />
-                      <div className="absolute inset-0 w-16 h-16 mx-auto text-cyan-500 dark:text-cyan-400 animate-pulse" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">¡Bienvenido a PromptGen!</h2>
-                    <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-                      Describe tu idea y te ayudaré a crear el prompt perfecto para cualquier plataforma de IA.
-                    </p>
-                  </div>
-                )}
-                {/* Elemento vacío para el auto-scroll */}
-                <div ref={messagesEndRef} />
-              </div>
-            </div>
-
-            {/* Área de entrada fija en la parte inferior */}
-            <div className="border-t border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl">
-              <div className="max-w-4xl mx-auto px-4 py-4">
-                <Card className="border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/50">
-                  <CardContent className="p-4">
-                    {/* Mostrar archivos adjuntos si existen */}
-                    {uploadedFiles.length > 0 && (
-                      <div className="bg-gray-100 dark:bg-gray-700/30 rounded-lg p-3 border border-gray-200 dark:border-gray-600 mb-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Archivos adjuntos
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setUploadedFiles([])}
-                            className="h-6 w-6 p-0 text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {uploadedFiles.map((file, index) => (
-                            <Badge
-                              key={index}
-                              variant="secondary"
-                              className="bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 flex items-center gap-1"
-                            >
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          {/* Área de conversación */}
+          <div ref={chatContainerRef} onScroll={handleScroll} className="flex-1 overflow-auto px-4 py-8">
+            <div className="max-w-4xl mx-auto space-y-6">
+              {/* Mostrar historial de conversación */}
+              {history.map((item) => (
+                <div key={item.id} className="space-y-4">
+                  {/* Mensaje del usuario */}
+                  <div className="flex justify-end">
+                    <div className="max-w-[80%] bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-2xl px-4 py-3">
+                      <p className="text-sm">{item.originalIdea}</p>
+                      {item.files && item.files.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {item.files.map((file, index) => (
+                            <Badge key={index} variant="secondary" className="bg-white/20 text-white text-xs">
                               {getFileIcon(file)}
-                              <span className="max-w-[100px] truncate">{file.name}</span>
-                              <button
-                                onClick={() => removeFile(index)}
-                                className="ml-1 hover:text-red-500 dark:hover:text-red-400"
-                              >
-                                ×
-                              </button>
+                              <span className="ml-1">{file.name}</span>
                             </Badge>
                           ))}
                         </div>
+                      )}
+                      <div className="flex items-center gap-1 mt-2 text-xs opacity-75">
+                        <span>{item.model}</span>
+                        <span>•</span>
+                        <span>{item.platform}</span>
                       </div>
-                    )}
-
-                    {/* Área de entrada con botones integrados */}
-                    <div className="relative">
-                      {/* Minimalist selectors bar */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <Select value={selectedModel} onValueChange={setSelectedModel}>
-                          <SelectTrigger className="w-auto h-8 px-3 bg-gray-100 dark:bg-gray-700/50 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs">
-                            <SelectValue placeholder="Modelo" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            {LOCAL_MODELS.map((model) => (
-                              <SelectItem
-                                key={model.value}
-                                value={model.value}
-                                className="text-gray-900 dark:text-white text-xs"
-                              >
-                                <div className="flex flex-col items-start">
-                                  <span>{model.label}</span>
-                                  <span className="text-gray-500 dark:text-gray-400 text-xs">{model.description}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-
-                        <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
-                          <SelectTrigger className="w-auto h-8 px-3 bg-gray-100 dark:bg-gray-700/50 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs">
-                            <SelectValue placeholder="Plataforma" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            {PLATFORMS.map((platform) => (
-                              <SelectItem
-                                key={platform.value}
-                                value={platform.value}
-                                className="text-gray-900 dark:text-white text-xs"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span>{platform.icon}</span>
-                                  <span>{platform.label}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <Textarea
-                        placeholder="Describe tu idea o concepto..."
-                        value={idea}
-                        onChange={(e) => setIdea(e.target.value)}
-                        className="min-h-[60px] max-h-[200px] pr-20 bg-gray-100 dark:bg-gray-700/50 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-cyan-500 dark:focus:border-cyan-400 focus:ring-cyan-500/20 dark:focus:ring-cyan-400/20 resize-none"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault()
-                            handleGenerateAndAnalyze()
-                          }
-                        }}
-                      />
-                      <div className="absolute bottom-2 right-2 flex items-center gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-full"
-                          title="Adjuntar archivos"
-                        >
-                          <Upload className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="default"
-                          onClick={handleGenerateAndAnalyze}
-                          disabled={isGenerating || isAnalyzing || !idea.trim()}
-                          className="h-8 px-3 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white dark:from-cyan-400 dark:to-purple-500 dark:hover:from-cyan-500 dark:hover:to-purple-600 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-60 disabled:transform-none disabled:shadow-none"
-                        >
-                          {isGenerating || isAnalyzing ? (
-                            <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin mr-2" />
-                          ) : (
-                            <Sparkles className="w-4 h-4 mr-2" />
-                          )}
-                          {/*{isAnalyzing ? "Analizando..." : (isGenerating ? "Generando..." : "Mejorar")}*/}
-
-                        </Button>
-                      </div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        accept="image/*,video/*,.pdf,.doc,.docx,.txt"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+
+                  {/* Respuesta de la IA */}
+                  {item.generatedPrompt && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3 space-y-3">
+                      {/* Thinking Steps - Solo para la generación actual si es el último item del historial */}
+                      { currentGeneratedItem && item.id === currentGeneratedItem.id && thinkingSteps.length > 0 && (
+                        <Card className="bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600">
+                          <CardHeader className="p-3">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                              <Brain className="w-4 h-4" />
+                              Pensando...
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-3 text-xs">
+                            <ul className="space-y-1">
+                              {thinkingSteps.map((step, index) => (
+                                <li key={index} className="flex items-center gap-2">
+                                  {index === thinkingSteps.length - 1 && (isAnalyzing || isGenerating) ? (
+                                      <div className="w-3 h-3 border-2 border-gray-300 dark:border-gray-400 border-t-blue-500 dark:border-t-blue-400 rounded-full animate-spin" />
+                                  ) : (
+                                      <CheckCircle className="w-3 h-3 text-green-500" />
+                                  )}
+                                  <span>{step}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {item.qualityReport && (
+                         <Card className="bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700">
+                          <CardHeader className="p-3">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
+                              <Sparkles className="w-4 h-4" />
+                              Análisis de Calidad del Prompt
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-3 text-xs space-y-1">
+                            <p className="whitespace-pre-wrap">{item.qualityReport}</p>
+                            {(item.interpretedKeywords) && (
+                              <p><strong>Palabras Clave:</strong> {item.interpretedKeywords}</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {item.structuralFeedback && (
+                        <Card className="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700">
+                          <CardHeader className="p-3">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-green-700 dark:text-green-500">
+                              <MessageSquare className="w-4 h-4" />
+                              Feedback Estructural
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-3 text-xs whitespace-pre-wrap">
+                            {item.structuralFeedback}
+                          </CardContent>
+                        </Card>
+                      )}
+                      
+                      <div className="flex items-center gap-2 mb-1 mt-2">
+                        <Zap className="w-4 h-4 text-purple-500 dark:text-purple-400" />
+                        <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                          Prompt Mejorado/Sugerido
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(item.generatedPrompt)}
+                          className="h-6 w-6 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white ml-auto"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
+                      <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap text-sm">
+                        {item.generatedPrompt}
+                      </p>
+
+                      {item.variations && item.variations.length > 0 && (
+                        <Card className="bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-700">
+                          <CardHeader className="p-3">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
+                              <PenTool className="w-4 h-4" />
+                              Otras Variaciones Sugeridas
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-3 text-xs space-y-1">
+                            {item.variations.map((variation, index) => (
+                              <div key={index} className="flex items-start gap-2 p-1.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-800/50">
+                                <p className="flex-grow whitespace-pre-wrap">- {variation}</p>
+                                <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={() => copyToClipboard(variation)}>
+                                  <Copy className="w-2.5 h-2.5" />
+                                </Button>
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {item.ideas && Array.isArray(item.ideas) && item.ideas.length > 0 && (
+                        <Card className="bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-700">
+                          <CardHeader className="p-3">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-pink-700 dark:text-pink-400">
+                              <Lightbulb className="w-4 h-4" />
+                              Ideas Generadas
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-3 text-xs space-y-1">
+                            <ul className="list-disc list-inside">
+                              {item.ideas.map((idea, index) => (
+                                <li key={index}>{idea}</li>
+                              ))}
+                            </ul>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      <div className="flex items-center gap-2 mt-3">
+                        <Badge
+                          variant="secondary"
+                          className="bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 text-xs"
+                        >
+                          {item.platform}
+                        </Badge>
+                        <Badge
+                          variant="secondary"
+                          className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 text-xs"
+                        >
+                          {item.model}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Mostrar mensaje de carga si es una nueva generación y no hay historial O si es el primer item del historial y está generando */}
+              {(isGenerating || isAnalyzing) && history.length === 0 && (
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-400 border-t-cyan-500 dark:border-t-cyan-400 rounded-full animate-spin" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {isAnalyzing ? "Analizando y generando..." : "Procesando..."}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mensaje de bienvenida si no hay historial y no se está generando nada */}
+              {history.length === 0 && !isGenerating && !isAnalyzing && (
+                <div className="text-center py-16">
+                  <div className="relative mb-6">
+                    <Wand2 className="w-16 h-16 mx-auto text-cyan-500 dark:text-cyan-400" />
+                    <div className="absolute inset-0 w-16 h-16 mx-auto text-cyan-500 dark:text-cyan-400 animate-pulse" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">¡Bienvenido a PromptGen!</h2>
+                  <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+                    Describe tu idea y te ayudaré a crear el prompt perfecto para cualquier plataforma de IA.
+                  </p>
+                </div>
+              )}
+              {/* Elemento vacío para el auto-scroll */}
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          <div
+            className={`absolute bottom-36 left-1/2 -translate-x-1/2 z-10 transition-opacity duration-300 ${
+              showScrollToBottom ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
+          >
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={scrollToBottom}
+              className="rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm transition-all hover:scale-110 shadow-md h-10 w-10 border-gray-300 dark:border-gray-700"
+              title="Bajar"
+            >
+              <ArrowDown className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+            </Button>
+          </div>
+
+          {/* Área de entrada fija en la parte inferior */}
+          <div className="border-t border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl">
+            <div className="max-w-4xl mx-auto px-4 py-4">
+              <Card className="border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/50">
+                <CardContent className="p-4">
+                  {/* Mostrar archivos adjuntos si existen */}
+                  {uploadedFiles.length > 0 && (
+                    <div className="bg-gray-100 dark:bg-gray-700/30 rounded-lg p-3 border border-gray-200 dark:border-gray-600 mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Archivos adjuntos
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setUploadedFiles([])}
+                          className="h-6 w-6 p-0 text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {uploadedFiles.map((file, index) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 flex items-center gap-1"
+                          >
+                            {getFileIcon(file)}
+                            <span className="max-w-[100px] truncate">{file.name}</span>
+                            <button
+                              onClick={() => removeFile(index)}
+                              className="ml-1 hover:text-red-500 dark:hover:text-red-400"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Área de entrada con botones integrados */}
+                  <div className="relative">
+                    {/* Minimalist selectors bar */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <Select value={selectedModel} onValueChange={setSelectedModel}>
+                        <SelectTrigger className="w-auto h-8 px-3 bg-gray-100 dark:bg-gray-700/50 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs">
+                          <SelectValue placeholder="Modelo" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          {LOCAL_MODELS.map((model) => (
+                            <SelectItem
+                              key={model.value}
+                              value={model.value}
+                              className="text-gray-900 dark:text-white text-xs"
+                            >
+                              <div className="flex flex-col items-start">
+                                <span>{model.label}</span>
+                                <span className="text-gray-500 dark:text-gray-400 text-xs">{model.description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
+                        <SelectTrigger className="w-auto h-8 px-3 bg-gray-100 dark:bg-gray-700/50 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs">
+                          <SelectValue placeholder="Plataforma" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                          {PLATFORMS.map((platform) => (
+                            <SelectItem
+                              key={platform.value}
+                              value={platform.value}
+                              className="text-gray-900 dark:text-white text-xs"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span>{platform.icon}</span>
+                                <span>{platform.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Textarea
+                      placeholder="Describe tu idea o concepto..."
+                      value={idea}
+                      onChange={(e) => setIdea(e.target.value)}
+                      className="min-h-[60px] max-h-[200px] pr-20 bg-gray-100 dark:bg-gray-700/50 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:border-cyan-500 dark:focus:border-cyan-400 focus:ring-cyan-500/20 dark:focus:ring-cyan-400/20 resize-none"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault()
+                          handleGenerateAndAnalyze()
+                        }
+                      }}
+                    />
+                    <div className="absolute bottom-2 right-2 flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-full"
+                        title="Adjuntar archivos"
+                      >
+                        <Upload className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="default"
+                        onClick={handleGenerateAndAnalyze}
+                        disabled={isGenerating || isAnalyzing || !idea.trim()}
+                        className="h-8 px-3 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white dark:from-cyan-400 dark:to-purple-500 dark:hover:from-cyan-500 dark:hover:to-purple-600 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-60 disabled:transform-none disabled:shadow-none"
+                      >
+                        {isGenerating || isAnalyzing ? (
+                          <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin mr-2" />
+                        ) : (
+                          <Sparkles className="w-4 h-4 mr-2" />
+                        )}
+                        {/*{isAnalyzing ? "Analizando..." : (isGenerating ? "Generando..." : "Mejorar")}*/}
+
+                      </Button>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
