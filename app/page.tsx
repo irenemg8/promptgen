@@ -329,40 +329,43 @@ export default function PromptGenPage() {
           className={`${isSidebarMinimized ? "w-16" : "w-80"} border-r border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/80 overflow-hidden hidden lg:block transition-all duration-300`}
         >
           <div className="p-4 h-full">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center mb-4">
               {!isSidebarMinimized && (
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white flex items-center gap-2">
                   <History className="w-4 h-4 text-green-500 dark:text-green-400" />
                   Historial
                 </h2>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSidebarMinimized(!isSidebarMinimized)}
-                className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                title={isSidebarMinimized ? "Expandir historial" : "Minimizar historial"}
-              >
-                {isSidebarMinimized ? (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
+              <div className={`flex items-center gap-1 ${!isSidebarMinimized ? "ml-auto" : "w-full justify-center"}`}>
+                {!isSidebarMinimized && history.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearHistory}
+                    className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                    title="Limpiar historial"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 )}
-              </Button>
-              {!isSidebarMinimized && history.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={clearHistory}
-                  className="h-7 w-7 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                  onClick={() => setIsSidebarMinimized(!isSidebarMinimized)}
+                  className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                  title={isSidebarMinimized ? "Expandir historial" : "Minimizar historial"}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {isSidebarMinimized ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  )}
                 </Button>
-              )}
+              </div>
             </div>
             {isSidebarMinimized ? (
               <div className="flex flex-col items-center space-y-2">
@@ -741,7 +744,8 @@ export default function PromptGenPage() {
                           ) : (
                             <Sparkles className="w-4 h-4 mr-2" />
                           )}
-                          {isAnalyzing ? "Analizando..." : (isGenerating ? "Generando..." : "Mejorar")}
+                          {/*{isAnalyzing ? "Analizando..." : (isGenerating ? "Generando..." : "Mejorar")}*/}
+
                         </Button>
                       </div>
                       <input
