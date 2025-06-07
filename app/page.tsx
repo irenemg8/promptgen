@@ -121,6 +121,25 @@ export default function PromptGenPage() {
       return
     }
 
+    const tempId = Date.now().toString()
+    const platformData = PLATFORMS.find((p) => p.value === selectedPlatform)
+    const modelData = LOCAL_MODELS.find((m) => m.value === selectedModel)
+    
+    const userMessageItem: GeneratedPrompt = {
+      id: tempId,
+      originalIdea: idea,
+      generatedPrompt: "", // Inicialmente vacío
+      model: modelData?.label || selectedModel,
+      platform: platformData?.label || selectedPlatform,
+      timestamp: new Date(),
+      files: uploadedFiles.length > 0 ? [...uploadedFiles] : undefined,
+    }
+
+    setHistory((prev) => [...prev, userMessageItem])
+    setCurrentGeneratedItem(userMessageItem)
+    setIdea("")
+    setUploadedFiles([])
+
     setIsGenerating(true)
     setIsAnalyzing(true)
     setThinkingSteps([])
@@ -130,10 +149,7 @@ export default function PromptGenPage() {
     setGeneratedVariations([])
     setGeneratedIdeas(null)
     setGeneratedPrompt("")
-    setCurrentGeneratedItem(null)
-
-    const currentTimestamp = new Date()
-    const tempId = Date.now().toString()
+    // No establecer setCurrentGeneratedItem a null aquí
 
     const addThinkingStep = (step: string) => {
       setThinkingSteps((prev) => [...prev, step])
@@ -219,38 +235,30 @@ export default function PromptGenPage() {
     setIsGenerating(false)
     setIsAnalyzing(false)
 
-    const platformData = PLATFORMS.find((p) => p.value === selectedPlatform)
-    const modelData = LOCAL_MODELS.find((m) => m.value === selectedModel)
-    
     // Usar las respuestas directas de la API para construir newItem
     const currentGeneratedPromptText = (variationsDataResponse?.variations && variationsDataResponse.variations.length > 0) 
                                       ? variationsDataResponse.variations[0] 
                                       : idea;
 
-    const newItem: GeneratedPrompt = {
-      id: tempId,
-      originalIdea: idea,
-      generatedPrompt: currentGeneratedPromptText, // Usar el prompt generado/original de esta ejecución
-      model: modelData?.label || selectedModel,
-      platform: platformData?.label || selectedPlatform,
-      timestamp: currentTimestamp,
-      files: uploadedFiles.length > 0 ? [...uploadedFiles] : undefined,
+    const updatedItemData = {
+      generatedPrompt: currentGeneratedPromptText,
       qualityReport: qualityDataResponse?.quality_report ?? undefined,
       interpretedKeywords: qualityDataResponse?.interpreted_keywords ?? undefined,
       structuralFeedback: feedbackDataResponse?.feedback ?? undefined,
       variations: variationsDataResponse?.variations ?? undefined,
       ideas: ideasDataResponse?.ideas ?? undefined,
     }
+
+    setHistory((prev) => 
+      prev.map((item) => (item.id === tempId ? { ...item, ...updatedItemData } : item))
+    )
     
-    setCurrentGeneratedItem(newItem)
-    setHistory((prev) => [...prev, newItem])
+    setCurrentGeneratedItem((prev) => (prev && prev.id === tempId ? { ...prev, ...updatedItemData } : prev))
 
     toast({
       title: "¡Proceso completado!",
       description: "Se ha analizado y mejorado el prompt.",
     })
-
-    setIdea("");
   }
 
   useEffect(() => {
@@ -444,6 +452,7 @@ export default function PromptGenPage() {
                     </div>
 
                     {/* Respuesta de la IA */}
+                    {item.generatedPrompt && (
                     <div className="flex justify-start">
                       <div className="max-w-[80%] bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3 space-y-3">
                         {/* Thinking Steps - Solo para la generación actual si es el último item del historial */}
@@ -576,6 +585,7 @@ export default function PromptGenPage() {
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 ))}
 
@@ -752,7 +762,7 @@ export default function PromptGenPage() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-xl mt-16">
+     {/* <footer className="border-t border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-black/50 backdrop-blur-xl mt-16">
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
@@ -775,7 +785,7 @@ export default function PromptGenPage() {
             </div>
           </div>
         </div>
-      </footer>
+      </footer> */}
     </div>
   )
 }
