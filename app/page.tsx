@@ -29,6 +29,7 @@ import {
   MessageSquare,
   CheckCircle,
   ArrowDown,
+  Loader2,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
@@ -783,15 +784,13 @@ export default function PromptGenPage() {
                         variant="default"
                         onClick={handleGenerateAndAnalyze}
                         disabled={isGenerating || isAnalyzing || !idea.trim()}
-                        className="h-8 px-3 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white dark:from-cyan-400 dark:to-purple-500 dark:hover:from-cyan-500 dark:hover:to-purple-600 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-60 disabled:transform-none disabled:shadow-none"
+                        className="h-8 w-8 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white dark:from-cyan-400 dark:to-purple-500 dark:hover:from-cyan-500 dark:hover:to-purple-600 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-60 disabled:transform-none disabled:shadow-none"
                       >
                         {isGenerating || isAnalyzing ? (
-                          <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin mr-2" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <Sparkles className="w-4 h-4 mr-2" />
+                          <Sparkles className="w-4 h-4" />
                         )}
-                        {/*{isAnalyzing ? "Analizando..." : (isGenerating ? "Generando..." : "Mejorar")}*/}
-
                       </Button>
                     </div>
                     <input
