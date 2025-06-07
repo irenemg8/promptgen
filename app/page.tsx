@@ -388,7 +388,7 @@ export default function PromptGenPage() {
                 </Button>
               </div>
             </div>
-            <div className={cn("flex-grow", isSidebarMinimized && "hidden")}>
+            <div className={cn("flex-grow min-h-0", isSidebarMinimized && "hidden")}>
               <ScrollArea className="h-full">
                 {history.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-500">
