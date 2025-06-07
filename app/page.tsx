@@ -34,6 +34,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
 import Link from "next/link"
+import { CollapsibleCard } from "@/components/ui/collapsible-card"
 
 interface GeneratedPrompt {
   id: string
@@ -490,15 +491,15 @@ export default function PromptGenPage() {
                   <div className="flex justify-start">
                     <div className="max-w-[80%] bg-gray-100 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-2xl px-4 py-3 space-y-3">
                       {/* Thinking Steps - Solo para la generación actual si es el último item del historial */}
-                      { currentGeneratedItem && item.id === currentGeneratedItem.id && thinkingSteps.length > 0 && (
-                        <Card className="bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600">
-                          <CardHeader className="p-3">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                              <Brain className="w-4 h-4" />
-                              Pensando...
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-3 text-xs">
+                      {currentGeneratedItem && item.id === currentGeneratedItem.id && thinkingSteps.length > 0 && (
+                        <CollapsibleCard
+                          title="Pensando..."
+                          icon={<Brain className="w-4 h-4" />}
+                          className="bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600"
+                          titleClassName="text-blue-600 dark:text-blue-400"
+                          initialOpen={true}
+                        >
+                          <div className="p-3 text-xs">
                             <ul className="space-y-1">
                               {thinkingSteps.map((step, index) => (
                                 <li key={index} className="flex items-center gap-2">
@@ -511,96 +512,106 @@ export default function PromptGenPage() {
                                 </li>
                               ))}
                             </ul>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </CollapsibleCard>
                       )}
 
                       {item.qualityReport && (
-                         <Card className="bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700">
-                          <CardHeader className="p-3">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
-                              <Sparkles className="w-4 h-4" />
-                              Análisis de Calidad del Prompt
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-3 text-xs space-y-1">
+                        <CollapsibleCard
+                          title="Análisis de Calidad del Prompt"
+                          icon={<Sparkles className="w-4 h-4" />}
+                          className="bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700"
+                          titleClassName="text-yellow-700 dark:text-yellow-400"
+                        >
+                          <div className="p-3 text-xs space-y-1">
                             <p className="whitespace-pre-wrap">{item.qualityReport}</p>
-                            {(item.interpretedKeywords) && (
-                              <p><strong>Palabras Clave:</strong> {item.interpretedKeywords}</p>
+                            {item.interpretedKeywords && (
+                              <p>
+                                <strong>Palabras Clave:</strong> {item.interpretedKeywords}
+                              </p>
                             )}
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </CollapsibleCard>
                       )}
 
                       {item.structuralFeedback && (
-                        <Card className="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700">
-                          <CardHeader className="p-3">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-green-700 dark:text-green-500">
-                              <MessageSquare className="w-4 h-4" />
-                              Feedback Estructural
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-3 text-xs whitespace-pre-wrap">
-                            {item.structuralFeedback}
-                          </CardContent>
-                        </Card>
-                      )}
-                      
-                      <div className="flex items-center gap-2 mb-1 mt-2">
-                        <Zap className="w-4 h-4 text-purple-500 dark:text-purple-400" />
-                        <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
-                          Prompt Mejorado/Sugerido
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(item.generatedPrompt)}
-                          className="h-6 w-6 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white ml-auto"
+                        <CollapsibleCard
+                          title="Feedback Estructural"
+                          icon={<MessageSquare className="w-4 h-4" />}
+                          className="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700"
+                          titleClassName="text-green-700 dark:text-green-500"
                         >
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                      </div>
-                      <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap text-sm">
-                        {item.generatedPrompt}
-                      </p>
+                          <p className="p-3 text-xs whitespace-pre-wrap">{item.structuralFeedback}</p>
+                        </CollapsibleCard>
+                      )}
 
-                      {item.variations && item.variations.length > 0 && (
-                        <Card className="bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-700">
-                          <CardHeader className="p-3">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
-                              <PenTool className="w-4 h-4" />
-                              Otras Variaciones Sugeridas
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-3 text-xs space-y-1">
-                            {item.variations.map((variation, index) => (
-                              <div key={index} className="flex items-start gap-2 p-1.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-800/50">
-                                <p className="flex-grow whitespace-pre-wrap">- {variation}</p>
-                                <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={() => copyToClipboard(variation)}>
-                                  <Copy className="w-2.5 h-2.5" />
-                                </Button>
-                              </div>
-                            ))}
-                          </CardContent>
-                        </Card>
+                      <CollapsibleCard
+                        title="Prompt Mejorado/Sugerido"
+                        icon={<Zap className="w-4 h-4 text-purple-500 dark:text-purple-400" />}
+                        titleClassName="text-purple-600 dark:text-purple-400"
+                        actions={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(item.generatedPrompt)}
+                            className="h-6 w-6 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                        }
+                      >
+                        <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap text-sm">
+                          {item.generatedPrompt}
+                        </p>
+                      </CollapsibleCard>
+
+                      {item.variations && item.variations.length > 1 && (
+                        <CollapsibleCard
+                          title="Otras Variaciones Sugeridas"
+                          icon={<PenTool className="w-4 h-4" />}
+                          className="bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-700"
+                          titleClassName="text-indigo-700 dark:text-indigo-400"
+                          initialOpen={false}
+                        >
+                          <div className="p-3 text-xs space-y-1">
+                            {item.variations
+                              .filter((v) => v !== item.generatedPrompt)
+                              .map((variation, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-start gap-2 p-1.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-800/50"
+                                >
+                                  <p className="flex-grow whitespace-pre-wrap">- {variation}</p>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 p-0"
+                                    onClick={() => copyToClipboard(variation)}
+                                  >
+                                    <Copy className="w-2.5 h-2.5" />
+                                  </Button>
+                                </div>
+                              ))}
+                          </div>
+                        </CollapsibleCard>
                       )}
 
                       {item.ideas && Array.isArray(item.ideas) && item.ideas.length > 0 && (
-                        <Card className="bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-700">
-                          <CardHeader className="p-3">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-pink-700 dark:text-pink-400">
-                              <Lightbulb className="w-4 h-4" />
-                              Ideas Generadas
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-3 text-xs space-y-1">
+                        <CollapsibleCard
+                          title="Ideas Generadas"
+                          icon={<Lightbulb className="w-4 h-4" />}
+                          className="bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-700"
+                          titleClassName="text-pink-700 dark:text-pink-400"
+                          initialOpen={false}
+                        >
+                          <div className="p-3 text-xs space-y-1">
                             <ul className="list-disc list-inside">
                               {item.ideas.map((idea, index) => (
                                 <li key={index}>{idea}</li>
                               ))}
                             </ul>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </CollapsibleCard>
                       )}
 
                       <div className="flex items-center gap-2 mt-3">
