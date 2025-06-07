@@ -1,19 +1,19 @@
-# Framework del servidor
+# Frameworks de IA y Modelos
+transformers
+torch
+sentence-transformers
+accelerate
+bitsandbytes
+
+# Servidor API
 fastapi
 uvicorn[standard]
 pydantic
+
+# Utilidades
 python-dotenv
-
-# Machine Learning & Transformers (Modelos Locales)
-torch
-transformers
-sentencepiece
-accelerate
-bitsandbytes
-# La siguiente librería es para el análisis de calidad con BART
-sentence-transformers
-
-# APIs de Modelos de Lenguaje
+numpy
+requests
 openai
 anthropic
 google-generativeai

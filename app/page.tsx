@@ -45,21 +45,15 @@ interface GeneratedPrompt {
   interpretedKeywords?: string
   structuralFeedback?: string
   variations?: string[]
-  ideas?: string
+  ideas?: string[]
 }
 
-const LLM_MODELS = [
-  // --- Modelos Locales (Ligeros) ---
-  { value: "gpt2", label: "GPT-2 (Local)", description: "124M params. Rápido, calidad base, se descarga localmente." },
-  { value: "distilgpt2", label: "DistilGPT-2 (Local)", description: "82M params. Versión más ligera de GPT-2, ideal para pruebas." },
-  { value: "EleutherAI/gpt-neo-125M", label: "GPT-Neo 125M (Local)", description: "125M params. Alternativa a GPT-2, se descarga localmente." },
-  // --- Modelos vía API (Requieren API Key) ---
-  { value: "api/gpt-4o", label: "OpenAI: GPT-4o (API)", description: "El modelo más avanzado de OpenAI. Requiere API Key." },
-  { value: "api/gpt-3.5-turbo", label: "OpenAI: GPT-3.5 Turbo (API)", description: "Rápido y económico. Requiere API Key de OpenAI." },
-  { value: "api/claude-3-5-sonnet", label: "Anthropic: Claude 3.5 Sonnet (API)", description: "El modelo más nuevo y potente de Anthropic. Requiere API Key." },
-  { value: "api/claude-3-haiku", label: "Anthropic: Claude 3 Haiku (API)", description: "El modelo más rápido y compacto de Anthropic. Requiere API Key." },
-  { value: "api/gemini-1.5-flash", label: "Google: Gemini 1.5 Flash (API)", description: "Modelo rápido y multimodal de Google. Requiere API Key." },
-  { value: "api/groq-llama3-8b", label: "Groq: Llama 3 8B (API)", description: "Versión de Llama 3 8B en la rapidísima API de Groq. Requiere API Key." },
+const LOCAL_MODELS = [
+  // --- Modelos Locales (Ligeros, sin API Key) ---
+  { value: "gpt2", label: "GPT-2", description: "Modelo base de 124M de parámetros. Rápido y versátil." },
+  { value: "distilgpt2", label: "DistilGPT-2", description: "Versión más ligera (82M) de GPT-2, ideal para pruebas rápidas." },
+  { value: "google-t5/t5-small", label: "T5-Small", description: "Modelo de Google (60M) para tareas de texto-a-texto." },
+  { value: "EleutherAI/gpt-neo-125M", label: "GPT-Neo 125M", description: "Alternativa a GPT-2 entrenada por EleutherAI." },
 ]
 
 const PLATFORMS = [
@@ -82,8 +76,9 @@ export default function PromptGenPage() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
-  const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
@@ -92,9 +87,14 @@ export default function PromptGenPage() {
   const [interpretedKeywords, setInterpretedKeywords] = useState<string | null>(null)
   const [structuralFeedback, setStructuralFeedback] = useState<string | null>(null)
   const [generatedVariations, setGeneratedVariations] = useState<string[]>([])
-  const [generatedIdeas, setGeneratedIdeas] = useState<string | null>(null)
+  const [generatedIdeas, setGeneratedIdeas] = useState<string[] | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [currentGeneratedItem, setCurrentGeneratedItem] = useState<GeneratedPrompt | null>(null)
+
+  // Efecto para manejar la hidratación
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
@@ -220,7 +220,7 @@ export default function PromptGenPage() {
     setIsAnalyzing(false)
 
     const platformData = PLATFORMS.find((p) => p.value === selectedPlatform)
-    const modelData = LLM_MODELS.find((m) => m.value === selectedModel)
+    const modelData = LOCAL_MODELS.find((m) => m.value === selectedModel)
     
     // Usar las respuestas directas de la API para construir newItem
     const currentGeneratedPromptText = (variationsDataResponse?.variations && variationsDataResponse.variations.length > 0) 
@@ -238,9 +238,7 @@ export default function PromptGenPage() {
       qualityReport: qualityDataResponse?.quality_report ?? undefined,
       interpretedKeywords: qualityDataResponse?.interpreted_keywords ?? undefined,
       structuralFeedback: feedbackDataResponse?.feedback ?? undefined,
-      variations: variationsDataResponse?.variations && variationsDataResponse.variations.length > 0 
-                  ? variationsDataResponse.variations 
-                  : undefined,
+      variations: variationsDataResponse?.variations ?? undefined,
       ideas: ideasDataResponse?.ideas ?? undefined,
     }
     
@@ -305,9 +303,13 @@ export default function PromptGenPage() {
               size="sm"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="h-9 w-9 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors duration-200"
-              title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+              title={mounted ? (theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro") : "Cambiar tema"}
             >
-              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {mounted ? (
+                theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />
+              ) : (
+                <div className="w-5 h-5" /> // Placeholder mientras se carga
+              )}
             </Button>
           </div>
         </div>
@@ -540,7 +542,7 @@ export default function PromptGenPage() {
                           </Card>
                         )}
 
-                        {item.ideas && (
+                        {item.ideas && Array.isArray(item.ideas) && item.ideas.length > 0 && (
                           <Card className="bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-700">
                             <CardHeader className="p-3">
                               <CardTitle className="text-sm font-medium flex items-center gap-2 text-pink-700 dark:text-pink-400">
@@ -548,8 +550,12 @@ export default function PromptGenPage() {
                                 Ideas Generadas
                               </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-3 text-xs whitespace-pre-wrap">
-                              {item.ideas}
+                            <CardContent className="p-3 text-xs space-y-1">
+                              <ul className="list-disc list-inside">
+                                {item.ideas.map((idea, index) => (
+                                  <li key={index}>{idea}</li>
+                                ))}
+                              </ul>
                             </CardContent>
                           </Card>
                         )}
@@ -656,7 +662,7 @@ export default function PromptGenPage() {
                             <SelectValue placeholder="Modelo" />
                           </SelectTrigger>
                           <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            {LLM_MODELS.map((model) => (
+                            {LOCAL_MODELS.map((model) => (
                               <SelectItem
                                 key={model.value}
                                 value={model.value}

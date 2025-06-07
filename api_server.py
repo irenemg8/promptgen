@@ -16,9 +16,9 @@ if current_dir not in sys.path:
 try:
     from promptgen_app import (
         analyze_prompt_quality_bart,
-        get_structural_feedback, # Placeholder
-        generate_variations,   # Placeholder
-        generate_ideas         # Placeholder
+        get_structural_feedback,
+        generate_variations,
+        generate_ideas
     )
     # También es buena idea asegurarse de que el pipeline principal está cargado
     # o al menos que promptgen_app.py lo maneje al ser importado.
@@ -32,13 +32,13 @@ except ImportError as e:
     print("Asegúrate de que promptgen_app.py está en el mismo directorio o en el PYTHONPATH.")
     # Definir funciones dummy para que el servidor pueda arrancar y señalar el problema
     def analyze_prompt_quality_bart(prompt: str):
-        return {"error": "Función no importada correctamente desde promptgen_app.py"}
+        return {"error": "Función 'analyze_prompt_quality_bart' no importada correctamente desde promptgen_app.py"}
     def get_structural_feedback(prompt: str, model_name: str):
-        return {"error": "Función no importada correctamente"}
-    def generate_variations(prompt: str, model_name: str):
-        return {"error": "Función no importada correctamente"}
-    def generate_ideas(prompt: str, model_name: str):
-        return {"error": "Función no importada correctamente"}
+        return {"error": "Función 'get_structural_feedback' no importada correctamente"}
+    def generate_variations(prompt: str, model_name: str, num_variations: int):
+        return {"error": "Función 'generate_variations' no importada correctamente"}
+    def generate_ideas(prompt: str, model_name: str, num_ideas: int):
+        return {"error": "Función 'generate_ideas' no importada correctamente"}
 
 app = FastAPI(
     title="PromptGen API",
@@ -71,7 +71,7 @@ class PromptRequest(BaseModel):
     # o en modelos de petición específicos para tareas que lo requieran.
 
 class ModelNameRequest(PromptRequest):
-    model_name: str = "gpt2" # Actualizado a gpt2
+    model_name: str = "gpt2"
 
 class VariationRequest(ModelNameRequest):
     num_variations: int = 3
@@ -91,10 +91,8 @@ async def api_analyze_quality(request_data: PromptRequest):
         raise HTTPException(status_code=400, detail="El prompt no puede estar vacío.")
     try:
         result = analyze_prompt_quality_bart(request_data.prompt)
-        if result.get("error") and "Modelo de análisis de calidad no cargado" not in result.get("error") :
-             # Si es un error de lógica interna pero no de carga de modelo, lo pasamos
-            if "Función" in result.get("error") : # Error de importación
-                 raise HTTPException(status_code=500, detail=result.get("error"))
+        if result.get("error"):
+            raise HTTPException(status_code=500, detail=result.get("error"))
         return result
     except Exception as e:
         print(f"Error en el endpoint /api/analyze_quality: {e}")
