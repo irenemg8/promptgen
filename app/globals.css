@@ -133,3 +133,32 @@
 .hover-lift:hover {
   transform: translateY(-2px);
 }
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #06b6d4, #ec4899);
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #22d3ee, #f472b6);
+}
+
+/* Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #06b6d4 transparent;
+}
+
+.dark html {
+    scrollbar-color: #22d3ee transparent;
+}
