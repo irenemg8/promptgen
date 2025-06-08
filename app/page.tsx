@@ -895,11 +895,17 @@ export default function PromptGenPage() {
                           <div>
                             <label className="block text-xs text-emerald-600 dark:text-emerald-400 mb-1">Máx. Iteraciones</label>
                             <Select 
-                              value={iterativeSettings.maxIterations.toString()} 
+                              value={`${iterativeSettings.maxIterations}`}
+                              defaultValue="3"
                               onValueChange={(value) => setIterativeSettings(prev => ({...prev, maxIterations: parseInt(value)}))}
                             >
                               <SelectTrigger className="h-8 text-xs bg-white dark:bg-gray-800 border-emerald-300 dark:border-emerald-600">
-                                <SelectValue />
+                                <SelectValue placeholder="Selecciona máx. iteraciones">
+                                  {iterativeSettings.maxIterations === 2 && "2 iteraciones"}
+                                  {iterativeSettings.maxIterations === 3 && "3 iteraciones"}
+                                  {iterativeSettings.maxIterations === 4 && "4 iteraciones"}
+                                  {iterativeSettings.maxIterations === 5 && "5 iteraciones"}
+                                </SelectValue>
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="2">2 iteraciones</SelectItem>
@@ -912,11 +918,17 @@ export default function PromptGenPage() {
                           <div>
                             <label className="block text-xs text-emerald-600 dark:text-emerald-400 mb-1">Calidad Objetivo</label>
                             <Select 
-                              value={iterativeSettings.targetQuality.toString()} 
+                              value={`${iterativeSettings.targetQuality}`} 
+                              defaultValue="80.0"
                               onValueChange={(value) => setIterativeSettings(prev => ({...prev, targetQuality: parseFloat(value)}))}
                             >
                               <SelectTrigger className="h-8 text-xs bg-white dark:bg-gray-800 border-emerald-300 dark:border-emerald-600">
-                                <SelectValue />
+                                <SelectValue placeholder="Selecciona calidad objetivo">
+                                  {iterativeSettings.targetQuality === 70.0 && "70% - Buena"}
+                                  {iterativeSettings.targetQuality === 80.0 && "80% - Muy Buena"}
+                                  {iterativeSettings.targetQuality === 85.0 && "85% - Excelente"}
+                                  {iterativeSettings.targetQuality === 90.0 && "90% - Perfecta"}
+                                </SelectValue>
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="70.0">70% - Buena</SelectItem>
