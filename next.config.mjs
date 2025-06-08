@@ -9,8 +9,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  basePath: '/promptgen',
+  basePath: process.env.GITHUB_ACTIONS ? '/promptgen' : '',
   output: 'export',
+  distDir: 'out',
 }
 
 export default nextConfig
