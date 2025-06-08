@@ -1,0 +1,114 @@
+api:
+  cors_origins:
+  - http://localhost:3000
+  - http://127.0.0.1:3000
+  - http://localhost:3001
+  host: 0.0.0.0
+  log_level: info
+  max_request_size_mb: 10
+  port: 8000
+  rate_limit_requests_per_minute: 100
+  rate_limiting_enabled: true
+  reload: false
+  request_timeout_seconds: 300
+  workers: 1
+debug: false
+environment: development
+log_level: INFO
+models:
+  distilgpt2:
+    description: Versión destilada y optimizada de GPT-2
+    do_sample: true
+    enabled: true
+    eos_token_id: null
+    max_tokens: 150
+    model_id: distilgpt2
+    model_type: causal-lm
+    name: DistilGPT-2
+    pad_token_id: null
+    parameters: 82M
+    priority: 2
+    repetition_penalty: 1.1
+    temperature: 0.8
+    top_k: 50
+    top_p: 0.9
+  gpt-neo-125m:
+    description: Modelo GPT-Neo de EleutherAI
+    do_sample: true
+    enabled: true
+    eos_token_id: null
+    max_tokens: 150
+    model_id: EleutherAI/gpt-neo-125M
+    model_type: causal-lm
+    name: GPT-Neo 125M
+    pad_token_id: null
+    parameters: 125M
+    priority: 2
+    repetition_penalty: 1.1
+    temperature: 0.8
+    top_k: 50
+    top_p: 0.9
+  gpt2:
+    description: Modelo GPT-2 base de OpenAI para generación de texto
+    do_sample: true
+    enabled: true
+    eos_token_id: null
+    max_tokens: 150
+    model_id: gpt2
+    model_type: causal-lm
+    name: GPT-2
+    pad_token_id: null
+    parameters: 124M
+    priority: 1
+    repetition_penalty: 1.1
+    temperature: 0.8
+    top_k: 50
+    top_p: 0.9
+  t5-small:
+    description: Modelo T5-Small de Google para tareas seq2seq
+    do_sample: true
+    enabled: true
+    eos_token_id: null
+    max_tokens: 150
+    model_id: t5-small
+    model_type: seq2seq-lm
+    name: T5-Small
+    pad_token_id: null
+    parameters: 60M
+    priority: 3
+    repetition_penalty: 1.1
+    temperature: 0.8
+    top_k: 50
+    top_p: 0.9
+monitoring:
+  alert_cooldown_minutes: 5
+  business_metrics_enabled: true
+  dashboard_refresh_seconds: 30
+  enabled: true
+  export_enabled: true
+  metrics_retention_hours: 24
+  performance_thresholds:
+    cpu_usage_critical: 85.0
+    cpu_usage_warning: 70.0
+    error_rate_critical: 5.0
+    error_rate_warning: 2.0
+    memory_usage_critical: 90.0
+    memory_usage_warning: 75.0
+    response_time_critical: 10.0
+    response_time_warning: 3.0
+quality:
+  enabled_metrics:
+  - completeness
+  - clarity
+  - specificity
+  - structure
+  - coherence
+  - actionability
+  improvement_target_default: 85.0
+  max_iterations_default: 5
+  min_quality_improvement: 2.0
+  quality_thresholds:
+    acceptable: 60.0
+    excellent: 90.0
+    good: 75.0
+    poor: 40.0

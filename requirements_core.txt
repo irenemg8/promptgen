@@ -1,0 +1,43 @@
+# PromptGen Enterprise - Dependencias Core
+# ==========================================
+# 
+# Dependencias mínimas necesarias para funcionamiento básico
+# Compatible con Python 3.11+ y Windows
+
+# === CORE FRAMEWORK ===
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+pydantic>=2.0.0
+
+# === MACHINE LEARNING & AI ===
+torch>=2.0.0
+transformers>=4.30.0
+tokenizers>=0.13.0
+sentence-transformers>=2.2.0
+
+# === NLP PROCESSING ===
+nltk>=3.8.0
+spacy>=3.6.0
+textstat>=0.7.0
+
+# === MONITORING & OBSERVABILITY ===
+psutil>=5.9.0
+
+# === WEB DASHBOARD ===
+streamlit>=1.25.0
+plotly>=5.15.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# === CONFIGURATION MANAGEMENT ===
+pyyaml>=6.0.0
+python-dotenv>=1.0.0
+
+# === HTTP & NETWORKING ===
+httpx>=0.24.0
+requests>=2.31.0
+
+# === UTILITIES ===
+click>=8.1.0
+tqdm>=4.65.0
+python-multipart>=0.0.6 

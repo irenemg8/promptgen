@@ -1,0 +1,97 @@
+# PromptGen Enterprise - Dependencias de Producción
+# ================================================
+# 
+# Dependencias optimizadas para entorno empresarial
+# con versiones específicas para estabilidad y seguridad
+#
+# Autor: Senior DevOps Engineer
+# Versión: 2.0.0 Enterprise
+
+# === CORE FRAMEWORK ===
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# === MACHINE LEARNING & AI ===
+torch==2.1.1
+transformers==4.36.0
+tokenizers==0.15.0
+accelerate==0.25.0
+sentence-transformers==2.2.2
+datasets==2.15.0
+
+# === NLP PROCESSING ===
+nltk==3.8.1
+spacy==3.7.2
+textstat==0.7.3
+langdetect==1.0.9
+
+# === MONITORING & OBSERVABILITY ===
+psutil==5.9.6
+prometheus-client==0.19.0
+structlog==23.2.0
+
+# === WEB DASHBOARD ===
+streamlit==1.28.2
+plotly==5.17.0
+pandas==2.1.4
+numpy==1.25.2
+
+# === CONFIGURATION MANAGEMENT ===
+pyyaml==6.0.1
+python-dotenv==1.0.0
+configparser==6.0.0
+
+# === HTTP & NETWORKING ===
+httpx==0.25.2
+requests==2.31.0
+aiohttp==3.9.1
+
+# === DATABASE & STORAGE ===
+sqlalchemy==2.0.23
+alembic==1.13.1
+redis==5.0.1
+
+# === SECURITY ===
+cryptography>=41.0.0
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+
+# === UTILITIES ===
+click==8.1.7
+rich==13.7.0
+tqdm==4.66.1
+python-multipart==0.0.6
+
+# === TESTING ===
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# === DEVELOPMENT TOOLS ===
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
+pre-commit==3.6.0
+
+# === DEPLOYMENT ===
+gunicorn==21.2.0
+docker==6.1.3
+
+# === OPTIONAL: GPU ACCELERATION ===
+# Descomenta si tienes GPU NVIDIA disponible
+# torch-audio==2.1.1+cu118
+# torch-vision==0.16.1+cu118
+
+# === OPTIONAL: ADVANCED NLP MODELS ===
+# Descomenta para modelos más avanzados (requiere más memoria)
+# tensorflow==2.15.0
+# tensorflow-hub==0.15.0
+
+# === ENTERPRISE EXTENSIONS ===
+# Dependencias adicionales para funcionalidades empresariales
+# celery==5.3.4          # Para procesamiento asíncrono
+# flower==2.0.1          # Monitoreo de Celery
+# elasticsearch==8.11.0  # Para búsqueda y analytics
+# kibana==0.1.0          # Dashboard de logs
+# grafana-api==1.0.3     # Métricas avanzadas 

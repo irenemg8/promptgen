@@ -52,6 +52,51 @@ interface GeneratedPrompt {
   structuralFeedback?: string
   variations?: string[]
   ideas?: string[]
+  iterativeResult?: IterativeImprovementResult
+}
+
+interface IterativeImprovementResult {
+  session_id: string
+  original_prompt: string
+  final_prompt: string
+  initial_quality: number
+  final_quality: number
+  total_improvement: number
+  iterations_completed: number
+  iterations_data: IterationData[]
+  learning_insights: LearningInsights
+  quality_metrics: QualityMetrics
+}
+
+interface IterationData {
+  iteration: number
+  original_prompt: string
+  improved_prompt: string
+  quality_before: number
+  quality_after: number
+  improvement_delta: number
+  improvements_made: string[]
+  processing_time: number
+}
+
+interface LearningInsights {
+  total_iterations: number
+  quality_trend: string
+  best_score: number
+  successful_patterns: string[]
+  failed_patterns: string[]
+  average_improvement: number
+}
+
+interface QualityMetrics {
+  completeness: number
+  clarity: number
+  specificity: number
+  structure: number
+  coherence: number
+  actionability: number
+  overall_score: number
+  improvement_potential: number
 }
 
 const LOCAL_MODELS = [
@@ -87,6 +132,11 @@ export default function PromptGenPage() {
   const [thinkingSteps, setThinkingSteps] = useState<string[]>([])
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [currentGeneratedItem, setCurrentGeneratedItem] = useState<GeneratedPrompt | null>(null)
+  const [useIterativeImprovement, setUseIterativeImprovement] = useState(false)
+  const [iterativeSettings, setIterativeSettings] = useState({
+    maxIterations: 3,
+    targetQuality: 80.0
+  })
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<null | HTMLDivElement>(null)
@@ -131,7 +181,113 @@ export default function PromptGenPage() {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const API_BASE_URL = "http://localhost:5000/api"
+  const API_BASE_URL = "http://localhost:8000/api"
+
+  const handleIterativeImprovement = async () => {
+    if (!idea.trim()) {
+      toast({
+        title: "Idea requerida",
+        description: "Por favor, introduce tu idea o prompt.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const tempId = Date.now().toString()
+    const platformData = PLATFORMS.find((p) => p.value === selectedPlatform)
+    const modelData = LOCAL_MODELS.find((m) => m.value === selectedModel)
+
+    const userMessageItem: GeneratedPrompt = {
+      id: tempId,
+      originalIdea: idea,
+      generatedPrompt: "",
+      model: modelData?.label || selectedModel,
+      platform: platformData?.label || selectedPlatform,
+      timestamp: new Date(),
+      files: uploadedFiles.length > 0 ? [...uploadedFiles] : undefined,
+    }
+
+    flushSync(() => {
+      setHistory((prev) => [...prev, userMessageItem])
+      setCurrentGeneratedItem(userMessageItem)
+      setIdea("")
+      setUploadedFiles([])
+      setIsGenerating(true)
+      setIsAnalyzing(true)
+      setThinkingSteps([])
+    })
+
+    const addThinkingStep = (step: string) => {
+      setThinkingSteps((prev) => [...prev, step])
+    }
+
+    addThinkingStep("🚀 Iniciando mejora iterativa empresarial...")
+    addThinkingStep(`🎯 Objetivo de calidad: ${iterativeSettings.targetQuality}%`)
+    addThinkingStep(`🔄 Máximo iteraciones: ${iterativeSettings.maxIterations}`)
+
+    try {
+      const iterativeResponse = await fetch(`${API_BASE_URL}/improve_iteratively`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          prompt: userMessageItem.originalIdea,
+          model_name: selectedModel,
+          max_iterations: iterativeSettings.maxIterations,
+          target_quality: iterativeSettings.targetQuality
+        }),
+      })
+
+      if (!iterativeResponse.ok) throw new Error("Error en mejora iterativa")
+      
+      const iterativeResult: IterativeImprovementResult = await iterativeResponse.json()
+      
+      addThinkingStep(`✅ Mejora iterativa completada`)
+      addThinkingStep(`📈 Mejora total: +${iterativeResult.total_improvement.toFixed(1)}%`)
+      addThinkingStep(`🔄 Iteraciones realizadas: ${iterativeResult.iterations_completed}`)
+
+      // Actualizar el historial con los resultados
+      flushSync(() => {
+        const iterativeUpdate = {
+          generatedPrompt: iterativeResult.final_prompt,
+          iterativeResult: iterativeResult,
+          qualityReport: `📊 Análisis Iterativo Empresarial\n\n` +
+                        `✅ Calidad inicial: ${iterativeResult.initial_quality.toFixed(1)}%\n` +
+                        `🚀 Calidad final: ${iterativeResult.final_quality.toFixed(1)}%\n` +
+                        `📈 Mejora total: +${iterativeResult.total_improvement.toFixed(1)}%\n` +
+                        `🔄 Iteraciones: ${iterativeResult.iterations_completed}\n` +
+                        `🧠 Tendencia: ${iterativeResult.learning_insights.quality_trend}\n\n` +
+                        `📋 Métricas finales:\n` +
+                        `• Completitud: ${iterativeResult.quality_metrics.completeness.toFixed(1)}%\n` +
+                        `• Claridad: ${iterativeResult.quality_metrics.clarity.toFixed(1)}%\n` +
+                        `• Especificidad: ${iterativeResult.quality_metrics.specificity.toFixed(1)}%\n` +
+                        `• Estructura: ${iterativeResult.quality_metrics.structure.toFixed(1)}%\n` +
+                        `• Coherencia: ${iterativeResult.quality_metrics.coherence.toFixed(1)}%\n` +
+                        `• Accionabilidad: ${iterativeResult.quality_metrics.actionability.toFixed(1)}%`
+        }
+        setHistory((prev) => prev.map((item) => (item.id === tempId ? { ...item, ...iterativeUpdate } : item)))
+        setCurrentGeneratedItem((prev) => (prev && prev.id === tempId ? { ...prev, ...iterativeUpdate } : prev))
+      })
+
+      addThinkingStep("🎉 Proceso de mejora iterativa completado exitosamente")
+
+      toast({
+        title: "¡Mejora iterativa completada!",
+        description: `Prompt mejorado en ${iterativeResult.total_improvement.toFixed(1)}% con ${iterativeResult.iterations_completed} iteraciones.`,
+      })
+
+    } catch (error) {
+      console.error("Error en mejora iterativa:", error)
+      addThinkingStep("❌ Error en el proceso de mejora iterativa")
+      toast({ 
+        title: "Error", 
+        description: "Fallo en la mejora iterativa. Intenta con el método estándar.", 
+        variant: "destructive" 
+      })
+    } finally {
+      setIsGenerating(false)
+      setIsAnalyzing(false)
+    }
+  }
 
   const handleGenerateAndAnalyze = async () => {
     if (!idea.trim()) {
@@ -202,7 +358,7 @@ export default function PromptGenPage() {
 
     addThinkingStep("Obteniendo feedback estructural...")
     try {
-      const feedbackResponse = await fetch(`${API_BASE_URL}/get_feedback`, {
+      const feedbackResponse = await fetch(`${API_BASE_URL}/generate_feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: idea, model_name: selectedModel }),
@@ -517,6 +673,118 @@ export default function PromptGenPage() {
                             </div>
                           </CollapsibleCard>
                         )}
+                        {item.iterativeResult && (
+                          <>
+                            {/* Prompt Final Mejorado - Destacado */}
+                            <CollapsibleCard 
+                              title="✨ PROMPT FINAL MEJORADO" 
+                              icon={<Zap className="w-4 h-4 text-yellow-500" />} 
+                              className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/30 dark:to-orange-900/30 border-2 border-yellow-300 dark:border-yellow-600" 
+                              titleClassName="text-yellow-700 dark:text-yellow-300 font-bold text-sm" 
+                              initialOpen={true}
+                            >
+                              <div className="relative bg-white dark:bg-gray-800 p-4 rounded-lg border border-yellow-200 dark:border-yellow-700">
+                                <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap text-sm font-medium">
+                                  {item.iterativeResult?.final_prompt}
+                                </p>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => copyToClipboard(item.iterativeResult?.final_prompt || '')} 
+                                  className="absolute top-2 right-2 h-8 w-8 p-0 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-200 bg-yellow-100 dark:bg-yellow-900/50 hover:bg-yellow-200 dark:hover:bg-yellow-800/50" 
+                                  title="Copiar prompt final mejorado"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </CollapsibleCard>
+                            
+                            {/* Detalles de la Mejora Iterativa */}
+                            <CollapsibleCard 
+                              title="🧠 Detalles de Mejora Iterativa" 
+                              icon={<Brain className="w-4 h-4" />} 
+                              className="bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700" 
+                              titleClassName="text-emerald-700 dark:text-emerald-400" 
+                              initialOpen={false}
+                            >
+                              <div className="p-3 text-xs space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="bg-white dark:bg-gray-800 p-2 rounded border">
+                                    <div className="text-emerald-600 dark:text-emerald-400 font-medium mb-1">Calidad Inicial</div>
+                                    <div className="text-lg font-bold">{item.iterativeResult.initial_quality.toFixed(1)}%</div>
+                                  </div>
+                                  <div className="bg-white dark:bg-gray-800 p-2 rounded border">
+                                    <div className="text-emerald-600 dark:text-emerald-400 font-medium mb-1">Calidad Final</div>
+                                    <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{item.iterativeResult.final_quality.toFixed(1)}%</div>
+                                  </div>
+                                </div>
+                                <div className="bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-teal-900/50 p-2 rounded">
+                                  <div className="text-emerald-700 dark:text-emerald-300 font-medium">
+                                    🚀 Mejora Total: +{item.iterativeResult.total_improvement.toFixed(1)}%
+                                  </div>
+                                  <div className="text-emerald-600 dark:text-emerald-400">
+                                    🔄 {item.iterativeResult.iterations_completed} iteraciones completadas
+                                  </div>
+                                </div>
+                                                              <div>
+                                <div className="text-emerald-600 dark:text-emerald-400 font-medium mb-1">📈 Progreso por Iteración:</div>
+                                {item.iterativeResult.iterations_data.map((iteration, index) => (
+                                  <details key={index} className="border border-emerald-200 dark:border-emerald-700 rounded mb-2">
+                                    <summary className="cursor-pointer p-2 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors">
+                                      <span className="font-medium">Iteración {iteration.iteration}</span>
+                                      <span className="float-right text-emerald-600 dark:text-emerald-400">
+                                        {iteration.quality_before.toFixed(1)}% → {iteration.quality_after.toFixed(1)}% 
+                                        <span className="text-emerald-700 dark:text-emerald-300 font-medium ml-1">
+                                          (+{iteration.improvement_delta.toFixed(1)}%)
+                                        </span>
+                                      </span>
+                                    </summary>
+                                    <div className="p-3 bg-white dark:bg-gray-800 text-xs">
+                                      <div className="space-y-2">
+                                        <div>
+                                          <span className="font-medium text-gray-600 dark:text-gray-400">Prompt antes:</span>
+                                          <p className="text-gray-800 dark:text-gray-200 mt-1 p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                                            {iteration.original_prompt}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-gray-600 dark:text-gray-400">Prompt después:</span>
+                                          <p className="text-gray-800 dark:text-gray-200 mt-1 p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded">
+                                            {iteration.improved_prompt}
+                                          </p>
+                                        </div>
+                                        {iteration.improvements_made && iteration.improvements_made.length > 0 && (
+                                          <div>
+                                            <span className="font-medium text-gray-600 dark:text-gray-400">Mejoras aplicadas:</span>
+                                            <ul className="list-disc list-inside mt-1 text-gray-700 dark:text-gray-300">
+                                              {iteration.improvements_made.map((improvement, idx) => (
+                                                <li key={idx}>{improvement}</li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                          Tiempo de procesamiento: {iteration.processing_time?.toFixed(2)}s
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </details>
+                                ))}
+                              </div>
+                                {item.iterativeResult.learning_insights.successful_patterns.length > 0 && (
+                                  <div>
+                                    <div className="text-emerald-600 dark:text-emerald-400 font-medium mb-1">🧠 Patrones Exitosos:</div>
+                                    <ul className="list-disc list-inside space-y-1">
+                                      {item.iterativeResult.learning_insights.successful_patterns.slice(0, 3).map((pattern, index) => (
+                                        <li key={index} className="text-emerald-700 dark:text-emerald-300">{pattern}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            </CollapsibleCard>
+                          </>
+                        )}
                         <div className="flex items-center gap-2 mt-3">
                           <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 text-xs">{item.platform}</Badge>
                           <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 text-xs">{item.model}</Badge>
@@ -599,7 +867,71 @@ export default function PromptGenPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <div className="flex items-center gap-2 ml-auto">
+                        <Button
+                          variant={useIterativeImprovement ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setUseIterativeImprovement(!useIterativeImprovement)}
+                          className={cn(
+                            "h-8 px-3 text-xs transition-all duration-200",
+                            useIterativeImprovement 
+                              ? "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md" 
+                              : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          )}
+                          title="Activar mejora iterativa empresarial"
+                        >
+                          <Brain className="w-3 h-3 mr-1" />
+                          {useIterativeImprovement ? "Iterativo" : "Estándar"}
+                        </Button>
+                      </div>
                     </div>
+                    {useIterativeImprovement && (
+                      <div className="mb-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Brain className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Configuración Empresarial</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-emerald-600 dark:text-emerald-400 mb-1">Máx. Iteraciones</label>
+                            <Select 
+                              value={iterativeSettings.maxIterations.toString()} 
+                              onValueChange={(value) => setIterativeSettings(prev => ({...prev, maxIterations: parseInt(value)}))}
+                            >
+                              <SelectTrigger className="h-8 text-xs bg-white dark:bg-gray-800 border-emerald-300 dark:border-emerald-600">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="2">2 iteraciones</SelectItem>
+                                <SelectItem value="3">3 iteraciones</SelectItem>
+                                <SelectItem value="4">4 iteraciones</SelectItem>
+                                <SelectItem value="5">5 iteraciones</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-emerald-600 dark:text-emerald-400 mb-1">Calidad Objetivo</label>
+                            <Select 
+                              value={iterativeSettings.targetQuality.toString()} 
+                              onValueChange={(value) => setIterativeSettings(prev => ({...prev, targetQuality: parseFloat(value)}))}
+                            >
+                              <SelectTrigger className="h-8 text-xs bg-white dark:bg-gray-800 border-emerald-300 dark:border-emerald-600">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="70.0">70% - Buena</SelectItem>
+                                <SelectItem value="80.0">80% - Muy Buena</SelectItem>
+                                <SelectItem value="85.0">85% - Excelente</SelectItem>
+                                <SelectItem value="90.0">90% - Perfecta</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
+                          🧠 El sistema aprenderá de cada iteración para mejorar progresivamente el prompt
+                        </p>
+                      </div>
+                    )}
                     <TextareaAutosize
                       placeholder="Describe tu idea o concepto..."
                       value={idea}
@@ -618,9 +950,15 @@ export default function PromptGenPage() {
                       <Button type="button" variant="ghost" onClick={() => fileInputRef.current?.click()} className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-full" title="Adjuntar archivos">
                         <Upload className="w-4 h-4" />
                       </Button>
-                      <Button variant="default" onClick={handleGenerateAndAnalyze} disabled={isGenerating || isAnalyzing || !idea.trim()} className="h-8 w-8 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white dark:from-cyan-400 dark:to-purple-500 dark:hover:from-cyan-500 dark:hover:to-purple-600 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-60 disabled:transform-none disabled:shadow-none">
-                        {isGenerating || isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                      </Button>
+                      {useIterativeImprovement ? (
+                        <Button variant="default" onClick={handleIterativeImprovement} disabled={isGenerating || isAnalyzing || !idea.trim()} className="h-8 w-8 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-60 disabled:transform-none disabled:shadow-none" title="Mejora Iterativa Empresarial">
+                          {isGenerating || isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                        </Button>
+                      ) : (
+                        <Button variant="default" onClick={handleGenerateAndAnalyze} disabled={isGenerating || isAnalyzing || !idea.trim()} className="h-8 w-8 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white dark:from-cyan-400 dark:to-purple-500 dark:hover:from-cyan-500 dark:hover:to-purple-600 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-60 disabled:transform-none disabled:shadow-none">
+                          {isGenerating || isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        </Button>
+                      )}
                     </div>
                     <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx,.txt" onChange={handleFileUpload} className="hidden" />
                   </div>
