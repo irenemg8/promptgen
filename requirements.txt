@@ -1,20 +1,55 @@
 # Frameworks de IA y Modelos
-transformers
-torch
-sentence-transformers
-accelerate
-bitsandbytes
+transformers>=4.35.0
+torch>=2.0.0
+sentence-transformers>=2.2.0
+accelerate>=0.20.0
+bitsandbytes>=0.40.0
 
 # Servidor API
-fastapi
-uvicorn[standard]
-pydantic
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+pydantic>=2.0.0
+
+# Procesamiento de documentos y RAG
+ollama>=0.2.0
+chromadb>=0.4.0
+langchain>=0.1.0
+langchain-community>=0.0.20
+langchain-ollama>=0.1.0
+pypdf2>=3.0.0
+python-docx>=0.8.11
+python-multipart>=0.0.6
+aiofiles>=23.1.0
+
+# Cifrado y Seguridad
+cryptography>=41.0.0
+pycryptodome>=3.18.0
+bcrypt>=4.0.0
+
+# Procesamiento de archivos adicionales
+pillow>=10.0.0
+python-magic>=0.4.27
+openpyxl>=3.1.0
+pandas>=2.0.0
+lxml>=4.9.0
+beautifulsoup4>=4.12.0
+markdown>=3.4.0
+pygments>=2.15.0
+easyocr>=1.7.0
+pytesseract>=0.3.10
+
+# Compresión y optimización
+lz4>=4.3.0
+msgpack>=1.0.0
+diskcache>=5.6.0
+cachetools>=5.3.0
+psutil>=5.9.0
 
 # Utilidades
-python-dotenv
-numpy
-requests
-openai
-anthropic
-google-generativeai
-groq 
+python-dotenv>=1.0.0
+numpy>=1.24.0
+requests>=2.31.0
+openai>=1.0.0
+anthropic>=0.7.0
+google-generativeai>=0.3.0
+groq>=0.4.0 

@@ -389,7 +389,7 @@ export default function PromptGenPage() {
       flushSync(() => {
         const currentGeneratedPromptText =
           variationsDataResponse?.variations && variationsDataResponse.variations.length > 0
-            ? variationsDataResponse.variations[0]
+            ? (typeof variationsDataResponse.variations[0] === 'object' ? variationsDataResponse.variations[0].prompt : variationsDataResponse.variations[0])
             : idea
         const variationsUpdate = {
           generatedPrompt: currentGeneratedPromptText,
@@ -487,6 +487,17 @@ export default function PromptGenPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Link href="/chat">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 px-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors duration-200"
+                  title="Chat con Documentos"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Chat
+                </Button>
+              </Link>
               <Button
                 variant="ghost"
                 size="sm"
@@ -651,10 +662,10 @@ export default function PromptGenPage() {
                         {item.variations && item.variations.length > 1 && (currentGeneratedItem?.id !== item.id || thinkingSteps.some((s) => s.startsWith("Variaciones generadas"))) && (
                           <CollapsibleCard title="Otras Variaciones Sugeridas" icon={<PenTool className="w-4 h-4" />} className="bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-700" titleClassName="text-indigo-700 dark:text-indigo-400" initialOpen={false}>
                             <div className="p-3 text-xs space-y-1">
-                              {item.variations.filter((v) => v !== item.generatedPrompt).map((variation, index) => (
+                              {item.variations.filter((v) => (typeof v === 'object' ? v.prompt : v) !== item.generatedPrompt).map((variation, index) => (
                                 <div key={index} className="flex items-start gap-2 p-1.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-800/50">
-                                  <p className="flex-grow whitespace-pre-wrap">- {variation}</p>
-                                  <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={() => copyToClipboard(variation)}>
+                                  <p className="flex-grow whitespace-pre-wrap">- {typeof variation === 'object' ? variation.prompt : variation}</p>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={() => copyToClipboard(typeof variation === 'object' ? variation.prompt : variation)}>
                                     <Copy className="w-2.5 h-2.5" />
                                   </Button>
                                 </div>
@@ -667,7 +678,7 @@ export default function PromptGenPage() {
                             <div className="p-3 text-xs space-y-1">
                               <ul className="list-disc list-inside">
                                 {item.ideas.map((idea, index) => (
-                                  <li key={index}>{idea}</li>
+                                  <li key={index}>{typeof idea === 'object' ? idea.prompt_suggestion : idea}</li>
                                 ))}
                               </ul>
                             </div>

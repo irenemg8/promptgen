@@ -5,6 +5,8 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.2.4-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-009688.svg)](https://fastapi.tiangolo.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19.0-61DAFB.svg)](https://react.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3.4.17-38B2AC.svg)](https://tailwindcss.com/)
 
 > **Plataforma de ingeniería de prompts de nivel empresarial** que transforma ideas básicas en prompts optimizados mediante modelos de IA avanzados. Diseñada para equipos de desarrollo, creadores de contenido y profesionales que buscan maximizar la efectividad de sus interacciones con LLMs.
 
@@ -26,52 +28,220 @@ PromptGen Enterprise es una solución integral de **prompt engineering** que abo
 ```mermaid
 graph TB
     subgraph "Frontend Layer"
-        A[Next.js 15 + TypeScript]
-        B[shadcn/ui Components]
-        C[Tailwind CSS]
+        A[Next.js 15.2.4 + TypeScript 5]
+        B[React 19 + Radix UI]
+        C[Tailwind CSS 3.4.17]
+        D[React Hook Form + Zod]
     end
     
     subgraph "API Gateway"
-        D[FastAPI Server]
-        E[Uvicorn ASGI]
+        E[FastAPI 0.104.1]
+        F[Uvicorn ASGI Server]
+        G[Pydantic Validation]
     end
     
     subgraph "AI Engine"
-        F[Hugging Face Transformers]
-        G[BART-Large-MNLI]
-        H[GPT-2/Neo Models]
-        I[Sentence Transformers]
+        H[PyTorch 2.1.1]
+        I[Hugging Face Transformers 4.36.0]
+        J[BART-Large-MNLI]
+        K[Sentence Transformers 2.2.2]
+        L[OpenAI/Anthropic/Groq APIs]
     end
     
     subgraph "Data Layer"
-        J[Local File System]
-        K[Model Cache]
-        L[Session Storage]
+        M[Local File System]
+        N[Model Cache]
+        O[Session Storage]
     end
     
-    A --> D
-    D --> F
-    F --> G
-    F --> H
-    F --> I
-    D --> J
-    G --> K
-    H --> K
+    subgraph "Monitoring & Analytics"
+        P[Prometheus Metrics]
+        Q[Streamlit Dashboard]
+        R[Plotly Visualizations]
+    end
+    
+    A --> E
+    E --> H
+    H --> I
+    I --> J
     I --> K
+    E --> M
+    H --> N
+    E --> P
+    P --> Q
+    Q --> R
 ```
 
-### 🔧 Stack Tecnológico
+---
 
-| Capa | Tecnología | Versión | Propósito |
-|------|------------|---------|-----------|
-| **Frontend** | Next.js | 15.2.4 | Framework React moderno |
-| **UI/UX** | shadcn/ui + Radix UI | Latest | Componentes enterprise-grade |
-| **Styling** | Tailwind CSS | 3.4.17 | Utility-first CSS framework |
-| **Backend** | FastAPI | 0.104.1 | API REST de alto rendimiento |
-| **ML Framework** | PyTorch | 2.1.1 | Motor de deep learning |
-| **NLP Engine** | Transformers | 4.36.0 | Modelos pre-entrenados |
-| **Server** | Uvicorn | 0.24.0 | Servidor ASGI productivo |
-| **Type Safety** | TypeScript | 5.0 | Desarrollo type-safe |
+## 🔧 Stack Tecnológico Completo
+
+### 🎨 **Frontend (Interfaz de Usuario)**
+
+| Tecnología | Versión | Propósito | Características |
+|------------|---------|-----------|----------------|
+| **Next.js** | 15.2.4 | Framework React | SSR, SSG, App Router, Image Optimization |
+| **React** | 19.0 | UI Library | Hooks, Suspense, Concurrent Features |
+| **TypeScript** | 5.0 | Type Safety | Strict Mode, Advanced Types |
+| **Tailwind CSS** | 3.4.17 | Utility-First CSS | JIT, Dark Mode, Custom Themes |
+| **Radix UI** | Latest | Unstyled Components | Accessibility, Keyboard Navigation |
+| **Lucide React** | 0.454.0 | Icon Library | SVG Icons, Tree Shakable |
+| **React Hook Form** | 7.54.1 | Form Management | Validation, Performance |
+| **Zod** | 3.24.1 | Schema Validation | TypeScript-first validation |
+| **Recharts** | 2.15.0 | Data Visualization | Responsive Charts |
+| **Next Themes** | Latest | Theme Management | Dark/Light Mode |
+
+**Componentes UI Enterprise:**
+- `@radix-ui/react-accordion`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`
+- `@radix-ui/react-popover`, `@radix-ui/react-select`, `@radix-ui/react-toast`
+- `@radix-ui/react-tooltip`, `@radix-ui/react-navigation-menu`
+- `react-resizable-panels`, `react-textarea-autosize`, `embla-carousel-react`
+
+### 🚀 **Backend (API y Servidor)**
+
+| Tecnología | Versión | Propósito | Características |
+|------------|---------|-----------|----------------|
+| **FastAPI** | 0.104.1 | Web Framework | Auto-docs, Async, Performance |
+| **Uvicorn** | 0.24.0 | ASGI Server | High Performance, WebSockets |
+| **Pydantic** | 2.5.0 | Data Validation | Type Hints, Serialization |
+| **Python** | 3.8+ | Core Language | Async/Await, Type Hints |
+| **CORS Middleware** | Included | Cross-Origin | Frontend-Backend Communication |
+
+### 🤖 **Inteligencia Artificial y Machine Learning**
+
+| Tecnología | Versión | Propósito | Modelos Soportados |
+|------------|---------|-----------|-------------------|
+| **PyTorch** | 2.1.1 | Deep Learning Framework | GPU/CPU Support |
+| **Transformers** | 4.36.0 | Pre-trained Models | BART, GPT-2, T5, BERT |
+| **Sentence Transformers** | 2.2.2 | Text Embeddings | Semantic Similarity |
+| **Accelerate** | 0.25.0 | Model Optimization | Multi-GPU, Mixed Precision |
+| **Tokenizers** | 0.15.0 | Text Processing | Fast Tokenization |
+| **Datasets** | 2.15.0 | Data Loading | HuggingFace Hub Integration |
+
+**Modelos de IA Integrados:**
+- `facebook/bart-large-mnli` - Zero-shot Classification
+- `all-MiniLM-L6-v2` - Sentence Embeddings
+- `gpt2` - Text Generation
+- `distilgpt2` - Lightweight Generation
+- `EleutherAI/gpt-neo-125M` - Creative Generation
+- `google-t5/t5-small` - Text-to-Text Transfer
+
+**APIs de IA Externas:**
+- **OpenAI API** - GPT-4, GPT-3.5-turbo
+- **Anthropic API** - Claude 3
+- **Google Generative AI** - Gemini
+- **Groq API** - High-speed inference
+
+### 🔍 **Procesamiento de Lenguaje Natural**
+
+| Tecnología | Versión | Propósito | Características |
+|------------|---------|-----------|----------------|
+| **NLTK** | 3.8.1 | NLP Toolkit | Tokenization, POS Tagging |
+| **spaCy** | 3.7.2 | Advanced NLP | NER, Dependency Parsing |
+| **TextStat** | 0.7.3 | Text Analysis | Readability Metrics |
+| **LangDetect** | 1.0.9 | Language Detection | Multi-language Support |
+
+### 📊 **Monitoreo y Visualización**
+
+| Tecnología | Versión | Propósito | Características |
+|------------|---------|-----------|----------------|
+| **Streamlit** | 1.28.2 | Web Dashboard | Interactive Analytics |
+| **Plotly** | 5.17.0 | Data Visualization | Interactive Charts |
+| **Pandas** | 2.1.4 | Data Manipulation | DataFrame Operations |
+| **NumPy** | 1.25.2 | Numerical Computing | Array Operations |
+| **Prometheus Client** | 0.19.0 | Metrics Collection | Time-series Data |
+| **psutil** | 5.9.6 | System Monitoring | CPU, Memory, Disk Usage |
+
+### 🗄️ **Base de Datos y Almacenamiento**
+
+| Tecnología | Versión | Propósito | Características |
+|------------|---------|-----------|----------------|
+| **SQLAlchemy** | 2.0.23 | ORM | Database Abstraction |
+| **Alembic** | 1.13.1 | Database Migrations | Schema Versioning |
+| **Redis** | 5.0.1 | Caching | Session Storage, Cache |
+
+### 🔒 **Seguridad y Configuración**
+
+| Tecnología | Versión | Propósito | Características |
+|------------|---------|-----------|----------------|
+| **Cryptography** | 41.0.0+ | Encryption | Data Protection |
+| **Passlib** | 1.7.4 | Password Hashing | bcrypt Support |
+| **Python-JOSE** | 3.3.0 | JWT Tokens | Authentication |
+| **YAML** | 6.0.1 | Configuration | Structured Config |
+| **Python-dotenv** | 1.0.0 | Environment Variables | Configuration Management |
+
+### 🛠️ **Herramientas de Desarrollo**
+
+| Tecnología | Versión | Propósito | Características |
+|------------|---------|-----------|----------------|
+| **ESLint** | Latest | Code Linting | JavaScript/TypeScript |
+| **Prettier** | Latest | Code Formatting | Auto-formatting |
+| **Black** | 23.11.0 | Python Formatting | PEP 8 Compliance |
+| **Flake8** | 6.1.0 | Python Linting | Style Guide Enforcement |
+| **MyPy** | 1.7.1 | Type Checking | Static Type Analysis |
+| **Pre-commit** | 3.6.0 | Git Hooks | Code Quality |
+
+### 🚢 **Deployment y Producción**
+
+| Tecnología | Versión | Propósito | Características |
+|------------|---------|-----------|----------------|
+| **Docker** | 6.1.3 | Containerization | Multi-stage Builds |
+| **Gunicorn** | 21.2.0 | WSGI Server | Production Deployment |
+| **Cross-env** | 7.0.3 | Environment Variables | Cross-platform |
+
+### 🧪 **Testing y Quality Assurance**
+
+| Tecnología | Versión | Propósito | Características |
+|------------|---------|-----------|----------------|
+| **Pytest** | 7.4.3 | Testing Framework | Fixtures, Parametrization |
+| **Pytest-asyncio** | 0.21.1 | Async Testing | Async Test Support |
+| **Pytest-cov** | 4.1.0 | Coverage Reporting | Code Coverage |
+
+---
+
+## 🏭 Arquitectura de Microservicios
+
+### 🔄 **Flujo de Datos**
+
+```mermaid
+sequenceDiagram
+    participant Frontend as Next.js Frontend
+    participant API as FastAPI Server
+    participant AI as AI Engine
+    participant Cache as Model Cache
+    participant Monitor as Monitoring
+    
+    Frontend->>API: POST /api/generate
+    API->>AI: Load Model
+    AI->>Cache: Check Cache
+    Cache-->>AI: Model/Results
+    AI->>AI: Process Prompt
+    AI-->>API: Generated Response
+    API->>Monitor: Log Metrics
+    API-->>Frontend: JSON Response
+```
+
+### 🏗️ **Estructura de Módulos**
+
+```
+promptgen/
+├── 🎨 Frontend (Next.js)
+│   ├── app/                    # App Router
+│   ├── components/             # React Components
+│   ├── hooks/                  # Custom Hooks
+│   └── lib/                    # Utilities
+├── 🚀 Backend (FastAPI)
+│   ├── api_server.py          # Main API Server
+│   ├── enterprise_config.py   # Configuration
+│   └── monitoring_system.py   # Metrics
+├── 🤖 AI Engine
+│   ├── promptgen_enterprise.py        # Core AI Logic
+│   ├── promptgen_enterprise_simple.py # Simplified AI
+│   └── promptgen_real_system.py      # Production AI
+└── 📊 Monitoring
+    ├── enterprise_dashboard.py # Streamlit Dashboard
+    └── config/                 # Configuration Files
+```
 
 ---
 
@@ -110,7 +280,7 @@ venv\Scripts\activate
 source venv/bin/activate
 
 # Instalar dependencias core
-pip install -r requirements_core.txt
+pip install -r requirements.txt
 
 # Para funcionalidades enterprise completas
 pip install -r requirements_enterprise.txt
@@ -324,7 +494,7 @@ python tests/benchmark.py
 
 ```bash
 # Instalar herramientas de desarrollo
-pip install -r requirements_dev.txt
+pip install -r requirements_enterprise.txt
 npm install
 
 # Setup pre-commit hooks
@@ -405,12 +575,8 @@ npm run lint
 - **Wiki**: Documentación colaborativa
 - **Enterprise Support**: Soporte prioritario para clientes enterprise
 
-### 🏢 Contacto Enterprise
-
-Para implementaciones enterprise, soporte dedicado y consultoría:
-
-📧 **Email**: vicenterivasmonferrer12@gmail.com | irenebati4@gmail.com  
-🔗 **LinkedIn**: [Vicente - PromptGen Developer](https://linkedin.com/in/vicente-rivas-monferrer) | [Irene - PromptGen Developer](https://linkedin.com/in/irene-medina-garcia)   
+### 🏢 Contacto
+📧 **Email**: irenebati4@gmail.com  
 
 ---
 
@@ -431,8 +597,9 @@ Los modelos de IA utilizados son propiedad de sus respectivos autores y están s
 - **Hugging Face** por el ecosistema de modelos open-source
 - **Vercel** por Next.js y las herramientas de desarrollo
 - **FastAPI** por el framework de API de alto rendimiento
-- **shadcn/ui** por los componentes de interfaz moderna
-
+- **Radix UI** por los componentes de interfaz accesible y moderna
+- **Tailwind CSS** por el framework de CSS utility-first
+- **PyTorch** por el framework de deep learning
 
 ---
 

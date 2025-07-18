@@ -1,6 +1,6 @@
-# api_server.py - Servidor API Empresarial para PromptGen
+# api_server.py - Servidor API Empresarial para PromptGen con Sistema Seguro
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -8,6 +8,12 @@ import sys
 import os
 import logging
 import time
+import shutil
+import uuid
+import asyncio
+import aiofiles
+from pathlib import Path
+from typing import List, Optional
 
 # Configuración de logging empresarial
 logging.basicConfig(
@@ -21,9 +27,54 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-# Importar el nuevo sistema empresarial
+# Importar el sistema simplificado
 try:
-    from promptgen_enterprise import (
+    from simple_document_system import (
+        process_document,
+        query_knowledge_base,
+        get_documents,
+        delete_document,
+        get_system_status,
+        cleanup_system
+    )
+    logger.info("✅ Sistema simplificado de documentos cargado exitosamente")
+    
+except ImportError as e:
+    logger.error(f"❌ Error importando sistema simplificado: {e}")
+    # Fallback al sistema original
+    try:
+        from document_rag_system import (
+            process_document,
+            query_knowledge_base,
+            get_documents,
+            delete_document,
+            get_system_status
+        )
+        logger.warning("⚠️ Usando sistema de documentos original")
+    except ImportError as e2:
+        logger.error(f"❌ Error importando sistema original: {e2}")
+        # Crear funciones dummy
+        async def process_document(file_path: str, filename: str):
+            return {"error": "Sistema de documentos no disponible"}
+        
+        async def query_knowledge_base(query: str, k: int = 5):
+            return {"error": "Sistema de documentos no disponible"}
+        
+        def get_documents():
+            return []
+        
+        def delete_document(doc_id: str):
+            return False
+        
+        def get_system_status():
+            return {"error": "Sistema de documentos no disponible"}
+        
+        def cleanup_system():
+            pass
+
+# Importar sistema empresarial
+try:
+    from promptgen_enterprise_simple import (
         analyze_prompt_quality_bart,
         get_structural_feedback,
         generate_variations,
@@ -39,518 +90,459 @@ try:
     # Inicializar componentes empresariales
     model_manager = EnterpriseModelManager()
     quality_analyzer = AdvancedQualityAnalyzer()
-    improvement_engine = ProgressiveImprovementEngine(model_manager, quality_analyzer)
+    improvement_engine = ProgressiveImprovementEngine()
     monitoring = get_monitoring_system()
     
+    logger.info("🚀 Componentes empresariales inicializados")
+    
 except ImportError as e:
-    logger.error(f"❌ Error al importar sistema empresarial: {e}")
-    # Funciones dummy para que el servidor pueda arrancar
-    def analyze_prompt_quality_bart(prompt: str):
-        return {"error": "Sistema empresarial no disponible"}
-    def get_structural_feedback(prompt: str, model_name: str):
-        return {"error": "Sistema empresarial no disponible"}
-    def generate_variations(prompt: str, model_name: str, num_variations: int):
-        return {"error": "Sistema empresarial no disponible"}
-    def generate_ideas(prompt: str, model_name: str, num_ideas: int):
-        return {"error": "Sistema empresarial no disponible"}
+    logger.error(f"❌ Error importando sistema empresarial: {e}")
+    model_manager = None
+    quality_analyzer = None
+    improvement_engine = None
     monitoring = None
 
-# Importar sistema real como alternativa
-try:
-    from promptgen_real_system import (
-        RealIterativeImprover, RealQualityAnalyzer, RealModelManager,
-        improve_iteratively_real, analyze_quality_real
-    )
-    REAL_SYSTEM_AVAILABLE = True
-    logger.info("✅ Sistema real de mejora cargado como alternativa")
-    
-    # Inicializar sistema real
-    real_improver = RealIterativeImprover()
-    real_analyzer = RealQualityAnalyzer()
-    
-except ImportError as e:
-    REAL_SYSTEM_AVAILABLE = False
-    logger.warning(f"⚠️ Sistema real no disponible: {e}")
-    real_improver = None
-    real_analyzer = None
-
+# Configurar aplicación FastAPI
 app = FastAPI(
     title="PromptGen Enterprise API",
-    description="API empresarial para análisis y mejora iterativa de prompts con modelos reales de Hugging Face.",
-    version="2.0.0"
+    description="API Empresarial para Generación y Análisis de Prompts con Sistema Seguro de Documentos",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
-# Configuración de CORS empresarial
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",  # Puerto alternativo
-    "https://promptgen.enterprise.com",  # Dominio de producción
-]
-
+# Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Modelos Pydantic Empresariales ---
-
+# Modelos Pydantic
 class PromptRequest(BaseModel):
     prompt: str
-    
-    class Config:
-        schema_extra = {
-            "example": {
-                "prompt": "Quiero crear una página web para una cafetería"
-            }
-        }
+    context: Optional[str] = None
+    model_type: str = "general"
+    difficulty: str = "medium"
 
-class ModelNameRequest(PromptRequest):
-    model_name: str = "gpt2"
-    
-    class Config:
-        schema_extra = {
-            "example": {
-                "prompt": "Desarrollar un sistema de gestión empresarial",
-                "model_name": "gpt2"
-            }
-        }
+class ChatRequest(BaseModel):
+    query: str
+    max_results: int = 5
 
-class VariationRequest(ModelNameRequest):
-    num_variations: int = 3
-    
-class IdeaRequest(ModelNameRequest):
-    num_ideas: int = 3
-
-class IterativeImprovementRequest(BaseModel):
+class ImprovementRequest(BaseModel):
     prompt: str
-    model_name: str = "gpt2"
-    max_iterations: int = 5
-    target_quality: float = 85.0
-    
-    class Config:
-        schema_extra = {
-            "example": {
-                "prompt": "Crear una aplicación móvil",
-                "model_name": "gpt2",
-                "max_iterations": 3,
-                "target_quality": 80.0
-            }
+    target_quality: float = 0.8
+    max_iterations: int = 3
+
+class SystemCleanupRequest(BaseModel):
+    cleanup_cache: bool = True
+    cleanup_logs: bool = False
+
+# Endpoints del sistema seguro de documentos
+@app.post("/api/upload-file")
+async def upload_file(file: UploadFile = File(...)):
+    """
+    Subir archivo al sistema seguro de documentos
+    Soporta: PDF, DOCX, DOC, TXT, JSON, CSV, XLSX, HTML, MD, imágenes, código
+    """
+    try:
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No se proporcionó nombre de archivo")
+        
+        # Crear directorio temporal si no existe
+        temp_dir = Path("temp_uploads")
+        temp_dir.mkdir(exist_ok=True)
+        
+        # Guardar archivo temporalmente
+        temp_file_path = temp_dir / f"{uuid.uuid4()}_{file.filename}"
+        
+        async with aiofiles.open(temp_file_path, 'wb') as f:
+            content = await file.read()
+            await f.write(content)
+        
+        # Procesar archivo con sistema seguro
+        result = await process_document(str(temp_file_path), file.filename)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        logger.info(f"✅ Archivo subido y procesado: {file.filename}")
+        
+        return {
+            "success": True,
+            "message": f"Archivo {file.filename} procesado exitosamente",
+            "result": result
         }
-
-# --- Middleware Empresarial de Monitoreo ---
-
-@app.middleware("http")
-async def monitoring_middleware(request: Request, call_next):
-    """Middleware empresarial para monitoreo de requests"""
-    start_time = time.time()
-    
-    # Registrar inicio de request
-    if monitoring:
-        monitoring.record_session_activity(str(request.client.host if request.client else "unknown"))
-    
-    try:
-        response = await call_next(request)
-        
-        # Calcular tiempo de respuesta
-        response_time = time.time() - start_time
-        
-        # Registrar métricas
-        if monitoring:
-            monitoring.record_request(
-                endpoint=str(request.url.path),
-                response_time=response_time,
-                success=response.status_code < 400
-            )
-        
-        # Añadir headers de monitoreo
-        response.headers["X-Response-Time"] = f"{response_time:.3f}s"
-        response.headers["X-Server-Version"] = "PromptGen-Enterprise-2.0.0"
-        
-        return response
         
     except Exception as e:
-        # Registrar error
-        response_time = time.time() - start_time
-        if monitoring:
-            monitoring.record_request(
-                endpoint=str(request.url.path),
-                response_time=response_time,
-                success=False
-            )
+        logger.error(f"❌ Error subiendo archivo: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/upload-multiple-files")
+async def upload_multiple_files(files: List[UploadFile] = File(...)):
+    """
+    Subir múltiples archivos de forma paralela
+    """
+    try:
+        if not files or len(files) == 0:
+            raise HTTPException(status_code=400, detail="No se proporcionaron archivos")
         
-        logger.error(f"❌ Error en request {request.url.path}: {e}")
+        # Crear directorio temporal
+        temp_dir = Path("temp_uploads")
+        temp_dir.mkdir(exist_ok=True)
+        
+        # Procesar archivos en paralelo
+        tasks = []
+        temp_files = []
+        
+        for file in files:
+            if not file.filename:
+                continue
+                
+            temp_file_path = temp_dir / f"{uuid.uuid4()}_{file.filename}"
+            temp_files.append(temp_file_path)
+            
+            # Guardar archivo temporalmente
+            async with aiofiles.open(temp_file_path, 'wb') as f:
+                content = await file.read()
+                await f.write(content)
+            
+            # Crear tarea de procesamiento
+            task = process_document(str(temp_file_path), file.filename)
+            tasks.append(task)
+        
+        # Procesar todos los archivos en paralelo
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Compilar resultados
+        processed_files = []
+        errors = []
+        
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                errors.append(f"Error en {files[i].filename}: {str(result)}")
+            elif "error" in result:
+                errors.append(f"Error en {files[i].filename}: {result['error']}")
+            else:
+                processed_files.append(result)
+        
+        logger.info(f"✅ Procesamiento masivo: {len(processed_files)} exitosos, {len(errors)} errores")
+        
+        return {
+            "success": True,
+            "processed_files": processed_files,
+            "errors": errors,
+            "total_files": len(files),
+            "successful_files": len(processed_files)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error en carga masiva: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat")
+async def chat_with_documents(request: ChatRequest):
+    """
+    Realizar consulta sobre documentos con optimización de velocidad
+    """
+    try:
+        start_time = time.time()
+        
+        # Validar entrada
+        if not request.query.strip():
+            raise HTTPException(status_code=400, detail="Query vacío")
+        
+        # Procesar consulta
+        result = await query_knowledge_base(request.query, request.max_results)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        # Verificar tiempo de respuesta
+        response_time = time.time() - start_time
+        if response_time > 10.0:
+            logger.warning(f"⚠️ Respuesta lenta: {response_time:.2f}s")
+        
+        return {
+            "success": True,
+            "result": result,
+            "response_time": response_time
+        }
+        
+    except HTTPException:
         raise
+    except Exception as e:
+        logger.error(f"❌ Error en chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# --- Endpoints Empresariales ---
-
-@app.post("/api/analyze_quality")
-async def api_analyze_quality(request_data: PromptRequest):
+@app.get("/api/documents")
+async def get_documents_list():
     """
-    Análisis avanzado de calidad del prompt con métricas empresariales.
-    
-    Utiliza el analizador empresarial que evalúa:
-    - Completitud
-    - Claridad  
-    - Especificidad
-    - Estructura
-    - Coherencia
-    - Accionabilidad
+    Obtener lista de documentos procesados
     """
-    if not request_data.prompt or not request_data.prompt.strip():
-        raise HTTPException(status_code=400, detail="El prompt no puede estar vacío.")
-    
     try:
-        start_time = time.time()
-        logger.info(f"📊 Analizando calidad del prompt: {request_data.prompt[:50]}...")
+        documents = get_documents()
+        return {
+            "success": True,
+            "documents": documents,
+            "total_count": len(documents)
+        }
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo documentos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/documents/{doc_id}")
+async def delete_document_endpoint(doc_id: str):
+    """
+    Eliminar documento específico
+    """
+    try:
+        success = delete_document(doc_id)
         
-        # Usar el sistema real si está disponible
-        if REAL_SYSTEM_AVAILABLE and real_analyzer:
-            logger.info("🤖 Usando análisis REAL de calidad")
-            result = analyze_quality_real(request_data.prompt)
-        else:
-            logger.warning("⚠️ Usando análisis empresarial como fallback")
-            result = analyze_prompt_quality_bart(request_data.prompt)
+        if not success:
+            raise HTTPException(status_code=404, detail="Documento no encontrado")
         
-        # Registrar métricas de análisis
-        analysis_time = time.time() - start_time
-        if monitoring:
-            monitoring._update_performance_metrics(quality_analysis_time=analysis_time)
+        return {
+            "success": True,
+            "message": "Documento eliminado exitosamente"
+        }
         
-        if result.get("error"):
-            raise HTTPException(status_code=500, detail=result.get("error"))
-            
-        logger.info("✅ Análisis de calidad completado")
-        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error eliminando documento: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/system/status")
+async def get_system_status_endpoint():
+    """
+    Obtener estado del sistema
+    """
+    try:
+        status = get_system_status()
+        return {
+            "success": True,
+            "status": status
+        }
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo estado: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/system/cleanup")
+async def cleanup_system_endpoint(request: SystemCleanupRequest):
+    """
+    Limpiar sistema y optimizar memoria
+    """
+    try:
+        if request.cleanup_cache:
+            cleanup_system()
+        
+        return {
+            "success": True,
+            "message": "Sistema limpiado exitosamente"
+        }
         
     except Exception as e:
-        logger.error(f"❌ Error en análisis de calidad: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        logger.error(f"❌ Error limpiando sistema: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/generate_feedback")
-async def api_structural_feedback(request_data: ModelNameRequest):
+# Endpoints del sistema empresarial de prompts
+@app.post("/api/analyze-prompt")
+async def analyze_prompt(request: PromptRequest):
     """
-    Genera feedback estructural inteligente basado en análisis de calidad.
+    Analizar calidad de prompt con sistema empresarial
     """
-    if not request_data.prompt or not request_data.prompt.strip():
-        raise HTTPException(status_code=400, detail="El prompt no puede estar vacío.")
-        
     try:
-        logger.info(f"💡 Generando feedback para: {request_data.prompt[:50]}...")
-        result = get_structural_feedback(request_data.prompt, request_data.model_name)
+        if not quality_analyzer:
+            raise HTTPException(status_code=503, detail="Sistema empresarial no disponible")
         
-        if result.get("error"):
-            raise HTTPException(status_code=500, detail=result.get("error"))
-            
-        logger.info("✅ Feedback generado exitosamente")
-        return result
-        
-    except Exception as e:
-        logger.error(f"❌ Error generando feedback: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
-
-@app.post("/api/generate_variations")
-async def api_generate_variations(request_data: VariationRequest):
-    """
-    Genera variaciones mejoradas del prompt usando modelos reales de Hugging Face.
-    """
-    if not request_data.prompt or not request_data.prompt.strip():
-        raise HTTPException(status_code=400, detail="El prompt no puede estar vacío.")
-        
-    try:
-        start_time = time.time()
-        logger.info(f"🔄 Generando {request_data.num_variations} variaciones...")
-        
-        result = generate_variations(
-            request_data.prompt, 
-            request_data.model_name, 
-            request_data.num_variations
-        )
-        
-        # Registrar uso del modelo
-        model_time = time.time() - start_time
+        # Registrar solicitud
         if monitoring:
-            monitoring.record_model_usage(request_data.model_name, model_time)
+            monitoring.log_request("analyze_prompt", request.dict())
         
-        if result.get("error"):
-            raise HTTPException(status_code=500, detail=result.get("error"))
-            
-        logger.info("✅ Variaciones generadas exitosamente")
-        return result
+        # Análisis de calidad
+        analysis = analyze_prompt_quality_bart(request.prompt)
         
+        # Análisis estructural
+        structural_feedback = get_structural_feedback(request.prompt)
+        
+        # Combinar resultados
+        result = {
+            "quality_analysis": analysis,
+            "structural_feedback": structural_feedback,
+            "prompt": request.prompt,
+            "timestamp": time.time()
+        }
+        
+        return {
+            "success": True,
+            "result": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error analizando prompt: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/generate-variations")
+async def generate_prompt_variations(request: PromptRequest):
+    """
+    Generar variaciones de prompt
+    """
+    try:
+        if not model_manager:
+            raise HTTPException(status_code=503, detail="Sistema empresarial no disponible")
+        
+        # Registrar solicitud
+        if monitoring:
+            monitoring.log_request("generate_variations", request.dict())
+        
+        # Generar variaciones
+        variations = generate_variations(request.prompt, request.context)
+        
+        return {
+            "success": True,
+            "variations": variations,
+            "original_prompt": request.prompt
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ Error generando variaciones: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/generate_ideas")
-async def api_generate_ideas(request_data: IdeaRequest):
+@app.post("/api/improve-prompt")
+async def improve_prompt(request: ImprovementRequest):
     """
-    Genera ideas creativas basadas en el prompt usando modelos reales de Hugging Face.
+    Mejorar prompt progresivamente
     """
-    if not request_data.prompt or not request_data.prompt.strip():
-        raise HTTPException(status_code=400, detail="El prompt no puede estar vacío.")
-        
     try:
-        start_time = time.time()
-        logger.info(f"💡 Generando {request_data.num_ideas} ideas...")
+        if not improvement_engine:
+            raise HTTPException(status_code=503, detail="Sistema empresarial no disponible")
         
-        result = generate_ideas(
-            request_data.prompt, 
-            request_data.model_name, 
-            request_data.num_ideas
+        # Registrar solicitud
+        if monitoring:
+            monitoring.log_request("improve_prompt", request.dict())
+        
+        # Mejorar prompt
+        improved_prompt = improvement_engine.improve_prompt(
+            request.prompt,
+            target_quality=request.target_quality,
+            max_iterations=request.max_iterations
         )
         
-        # Registrar uso del modelo
-        model_time = time.time() - start_time
-        if monitoring:
-            monitoring.record_model_usage(request_data.model_name, model_time)
+        return {
+            "success": True,
+            "improved_prompt": improved_prompt,
+            "original_prompt": request.prompt
+        }
         
-        if result.get("error"):
-            raise HTTPException(status_code=500, detail=result.get("error"))
-            
-        logger.info("✅ Ideas generadas exitosamente")
-        return result
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"❌ Error generando ideas: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
-
-@app.post("/api/improve_iteratively")
-async def api_improve_iteratively(request_data: IterativeImprovementRequest):
-    """
-    Mejora iterativa empresarial con aprendizaje contextual y métricas avanzadas.
-    
-    Utiliza el motor de mejora progresiva que:
-    - Analiza calidad con 6 métricas empresariales
-    - Aplica mejoras inteligentes basadas en deficiencias
-    - Aprende de iteraciones anteriores
-    - Valida mejoras reales vs regresiones
-    """
-    if not request_data.prompt or not request_data.prompt.strip():
-        raise HTTPException(status_code=400, detail="El prompt no puede estar vacío.")
-    
-    try:
-        start_time = time.time()
-        logger.info(f"🚀 Iniciando mejora iterativa empresarial...")
-        logger.info(f"   Prompt: {request_data.prompt[:50]}...")
-        logger.info(f"   Modelo: {request_data.model_name}")
-        logger.info(f"   Max iteraciones: {request_data.max_iterations}")
-        logger.info(f"   Calidad objetivo: {request_data.target_quality}%")
-        
-        # Usar el sistema real si está disponible
-        if REAL_SYSTEM_AVAILABLE and real_improver:
-            logger.info("🤖 Usando sistema REAL de mejora con modelos HuggingFace")
-            result = real_improver.improve_prompt_iteratively(
-                original_prompt=request_data.prompt,
-                model_name=request_data.model_name,
-                max_iterations=request_data.max_iterations,
-                target_quality=request_data.target_quality
-            )
-        elif 'improvement_engine' in globals():
-            logger.warning("⚠️ Usando sistema empresarial como fallback")
-            result = improvement_engine.improve_iteratively(
-                prompt=request_data.prompt,
-                model_name=request_data.model_name,
-                max_iterations=request_data.max_iterations,
-                target_quality=request_data.target_quality
-            )
-        else:
-            raise HTTPException(status_code=500, detail="Ningún motor de mejora disponible")
-        
-        # Registrar métricas de mejora
-        total_time = time.time() - start_time
-        if monitoring and result.get('iterations'):
-            # Calcular mejora de calidad
-            iterations = result['iterations']
-            if len(iterations) > 0:
-                original_quality = iterations[0].get('quality_score', 0)
-                final_quality = iterations[-1].get('quality_score', 0)
-                monitoring.record_prompt_improvement(original_quality, final_quality)
-        
-        if monitoring:
-            monitoring.record_model_usage(request_data.model_name, total_time)
-        
-        if result.get("error"):
-            raise HTTPException(status_code=500, detail=result.get("error"))
-            
-        logger.info(f"✅ Mejora iterativa completada en {total_time:.2f}s")
-        return result
-        
-    except Exception as e:
-        logger.error(f"❌ Error en mejora iterativa: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
-
-# --- Endpoints de Monitoreo y Observabilidad ---
+        logger.error(f"❌ Error mejorando prompt: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/health")
 async def health_check():
     """
-    Endpoint de health check empresarial con métricas detalladas.
+    Verificar salud del sistema
     """
     try:
-        health_data = {
-            "status": "healthy",
-            "timestamp": time.time(),
-            "version": "2.0.0-enterprise",
-            "components": {
-                "model_manager": "operational" if 'model_manager' in globals() else "unavailable",
-                "quality_analyzer": "operational" if 'quality_analyzer' in globals() else "unavailable", 
-                "improvement_engine": "operational" if 'improvement_engine' in globals() else "unavailable",
-                "monitoring_system": "operational" if monitoring else "unavailable"
-            }
+        # Verificar componentes principales
+        components_status = {
+            "api_server": "online",
+            "document_system": "online",
+            "enterprise_system": "online" if model_manager else "offline",
+            "monitoring": "online" if monitoring else "offline"
         }
         
-        # Añadir métricas de monitoreo si está disponible
-        if monitoring:
-            dashboard_data = monitoring.get_dashboard_data()
-            health_data.update({
-                "system_health": dashboard_data.get("system_health", "unknown"),
-                "uptime": dashboard_data.get("uptime", 0),
-                "active_alerts": dashboard_data.get("total_alerts", 0),
-                "critical_alerts": dashboard_data.get("critical_alerts", 0)
-            })
+        # Obtener métricas del sistema
+        system_metrics = get_system_status()
         
-        return health_data
+        return {
+            "success": True,
+            "status": "healthy",
+            "components": components_status,
+            "metrics": system_metrics,
+            "timestamp": time.time()
+        }
         
     except Exception as e:
         logger.error(f"❌ Error en health check: {e}")
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "unhealthy",
-                "error": str(e),
-                "timestamp": time.time()
-            }
-        )
-
-@app.get("/api/metrics/dashboard")
-async def get_dashboard_metrics():
-    """
-    Endpoint para obtener métricas del dashboard empresarial.
-    """
-    if not monitoring:
-        raise HTTPException(status_code=503, detail="Sistema de monitoreo no disponible")
-    
-    try:
-        dashboard_data = monitoring.get_dashboard_data()
-        return dashboard_data
-        
-    except Exception as e:
-        logger.error(f"❌ Error obteniendo métricas de dashboard: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
-
-@app.post("/api/metrics/export")
-async def export_metrics():
-    """
-    Endpoint para exportar métricas históricas.
-    """
-    if not monitoring:
-        raise HTTPException(status_code=503, detail="Sistema de monitoreo no disponible")
-    
-    try:
-        timestamp = int(time.time())
-        filename = f"promptgen_metrics_{timestamp}.json"
-        filepath = os.path.join(current_dir, "exports", filename)
-        
-        # Crear directorio de exports si no existe
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        
-        monitoring.export_metrics(filepath)
-        
         return {
-            "status": "success",
-            "message": "Métricas exportadas exitosamente",
-            "filename": filename,
-            "filepath": filepath
+            "success": False,
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": time.time()
         }
-        
-    except Exception as e:
-        logger.error(f"❌ Error exportando métricas: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
-@app.get("/api/models")
-async def get_available_models():
+# Manejador de errores global
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
     """
-    Obtiene la lista de modelos disponibles con información detallada.
+    Manejador global de excepciones
     """
+    logger.error(f"❌ Error no manejado: {exc}")
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "Error interno del servidor",
+            "detail": str(exc),
+            "timestamp": time.time()
+        }
+    )
+
+# Evento de inicio
+@app.on_event("startup")
+async def startup_event():
+    """
+    Configuración al iniciar el servidor
+    """
+    logger.info("🚀 PromptGen Enterprise API iniciándose...")
+    
+    # Crear directorios necesarios
+    os.makedirs("temp_uploads", exist_ok=True)
+    os.makedirs("secure_documents", exist_ok=True)
+    
+    logger.info("✅ PromptGen Enterprise API iniciado exitosamente")
+
+# Evento de cierre
+@app.on_event("shutdown")
+async def shutdown_event():
+    """
+    Limpieza al cerrar el servidor
+    """
+    logger.info("🔄 Cerrando PromptGen Enterprise API...")
+    
+    # Limpiar recursos
     try:
-        if 'model_manager' not in globals():
-            raise HTTPException(status_code=503, detail="Gestor de modelos no disponible")
-        
-        models_info = {
-            "available_models": list(model_manager.model_configs.keys()),
-            "model_details": {}
-        }
-        
-        for model_key, config in model_manager.model_configs.items():
-            models_info["model_details"][model_key] = {
-                "name": config["name"],
-                "parameters": config.get("parameters", "Unknown"),
-                "type": config.get("type", "causal-lm"),
-                "description": config.get("description", "Modelo de lenguaje para generación de texto"),
-                "loaded": model_key in model_manager.model_cache
-            }
-        
-        return models_info
-        
-    except Exception as e:
-        logger.error(f"❌ Error obteniendo modelos disponibles: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
-
-@app.get("/")
-async def root():
-    """
-    Endpoint raíz con información del sistema empresarial.
-    """
-    return {
-        "message": "PromptGen Enterprise API v2.0.0",
-        "description": "Sistema empresarial de mejora iterativa de prompts con IA",
-        "features": [
-            "Análisis avanzado de calidad con 6 métricas",
-            "Mejora iterativa con aprendizaje contextual", 
-            "Modelos reales de Hugging Face",
-            "Sistema de monitoreo empresarial",
-            "Métricas de rendimiento y negocio",
-            "Alertas inteligentes",
-            "Dashboard de observabilidad"
-        ],
-        "endpoints": {
-            "health": "/api/health",
-            "models": "/api/models", 
-            "analyze": "/api/analyze_quality",
-            "feedback": "/api/get_feedback",
-            "variations": "/api/generate_variations",
-            "ideas": "/api/generate_ideas",
-            "improve": "/api/improve_iteratively",
-            "dashboard": "/api/metrics/dashboard",
-            "export": "/api/metrics/export"
-        },
-        "documentation": "/docs"
-    }
-
-# --- Configuración de Servidor ---
+        cleanup_system()
+    except:
+        pass
+    
+    # Limpiar directorio temporal
+    temp_dir = Path("temp_uploads")
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir)
+    
+    logger.info("✅ PromptGen Enterprise API cerrado exitosamente")
 
 if __name__ == "__main__":
-    logger.info("🚀 Iniciando PromptGen Enterprise API Server...")
+    logger.info("🎯 Iniciando servidor PromptGen Enterprise...")
     
-    try:
-        uvicorn.run(
-            "api_server:app",
-            host="0.0.0.0",
-            port=8000,
-            reload=True,
-            log_level="info"
-        )
-    except KeyboardInterrupt:
-        logger.info("🛑 Servidor detenido por usuario")
-        if monitoring:
-            monitoring.stop_monitoring()
-    except Exception as e:
-        logger.error(f"❌ Error crítico del servidor: {e}")
-        if monitoring:
-            monitoring.stop_monitoring()
-        raise 
+    # Configuración del servidor
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        log_level="info",
+        access_log=True,
+        workers=1  # Mantener en 1 para evitar conflictos con el sistema de documentos
+    ) 
