@@ -1,231 +1,347 @@
-# setup_ollama.py - Script para instalar y configurar Ollama
-import subprocess
-import sys
-import platform
+#!/usr/bin/env python3
+"""
+Script para instalar y configurar Ollama automáticamente
+Funciona en Windows, macOS y Linux
+"""
+
 import os
-import time
+import sys
+import subprocess
+import platform
 import requests
-import json
+import time
 from pathlib import Path
 
-def run_command(command, shell=True):
-    """Ejecutar comando del sistema"""
+def print_colored(text, color='white'):
+    """Imprime texto con colores"""
+    colors = {
+        'red': '\033[91m',
+        'green': '\033[92m',
+        'yellow': '\033[93m',
+        'blue': '\033[94m',
+        'magenta': '\033[95m',
+        'cyan': '\033[96m',
+        'white': '\033[97m',
+        'reset': '\033[0m'
+    }
+    print(f"{colors.get(color, '')}{text}{colors['reset']}")
+
+def check_internet():
+    """Verifica conexión a internet"""
     try:
-        result = subprocess.run(command, shell=shell, capture_output=True, text=True, check=True)
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        print(f"Error ejecutando comando: {command}")
-        print(f"Error: {e.stderr}")
-        return None
+        requests.get("https://www.google.com", timeout=5)
+        return True
+    except:
+        return False
 
-def check_ollama_installed():
-    """Verificar si Ollama está instalado"""
+def is_ollama_installed():
+    """Verifica si Ollama está instalado"""
     try:
-        result = subprocess.run(['ollama', '--version'], capture_output=True, text=True)
-        return result.returncode == 0
-    except FileNotFoundError:
+        subprocess.run(['ollama', '--version'], capture_output=True, check=True)
+        return True
+    except:
         return False
 
-def install_ollama():
-    """Instalar Ollama según el sistema operativo"""
-    system = platform.system().lower()
-    
-    print("🚀 Instalando Ollama...")
-    
-    if system == "linux":
-        print("📦 Instalando Ollama en Linux...")
-        command = "curl -fsSL https://ollama.com/install.sh | sh"
-    elif system == "darwin":  # macOS
-        print("📦 Instalando Ollama en macOS...")
-        command = "curl -fsSL https://ollama.com/install.sh | sh"
-    elif system == "windows":
-        print("📦 Para Windows, descarga Ollama desde: https://ollama.com/download")
-        print("🔗 Ejecuta el instalador y luego ejecuta este script nuevamente.")
-        return False
-    else:
-        print(f"❌ Sistema operativo no soportado: {system}")
-        return False
-    
-    result = run_command(command)
-    if result is None:
-        return False
-    
-    print("✅ Ollama instalado exitosamente")
-    return True
-
-def start_ollama_service():
-    """Iniciar el servicio de Ollama"""
-    print("🔄 Iniciando servicio Ollama...")
-    
-    system = platform.system().lower()
-    
-    if system == "linux":
-        # Intentar iniciar con systemd
-        run_command("sudo systemctl start ollama")
-        run_command("sudo systemctl enable ollama")
-    elif system == "darwin":
-        # En macOS, ollama se inicia automáticamente
-        pass
-    elif system == "windows":
-        # En Windows, el servicio se inicia automáticamente
-        pass
-    
-    # Verificar si el servicio está ejecutándose
-    time.sleep(2)
+def is_ollama_running():
+    """Verifica si Ollama está ejecutándose"""
     try:
         response = requests.get("http://localhost:11434/api/tags", timeout=5)
-        if response.status_code == 200:
-            print("✅ Servicio Ollama iniciado correctamente")
-            return True
-    except requests.RequestException:
-        pass
-    
-    print("❌ Error iniciando el servicio Ollama")
-    return False
-
-def download_models():
-    """Descargar modelos necesarios"""
-    models_to_download = [
-        "llama3.2:3b",           # Modelo para chat
-        "mxbai-embed-large",     # Modelo para embeddings
-    ]
-    
-    print(f"📥 Descargando {len(models_to_download)} modelos...")
-    
-    for model in models_to_download:
-        print(f"🔄 Descargando {model}...")
-        
-        # Descargar modelo
-        result = run_command(f"ollama pull {model}")
-        if result is None:
-            print(f"❌ Error descargando {model}")
-            return False
-        
-        print(f"✅ {model} descargado exitosamente")
-    
-    return True
-
-def verify_models():
-    """Verificar que los modelos están disponibles"""
-    print("🔍 Verificando modelos instalados...")
-    
-    result = run_command("ollama list")
-    if result is None:
+        return response.status_code == 200
+    except:
         return False
-    
-    print("📋 Modelos instalados:")
-    print(result)
-    
-    required_models = ["llama3.2:3b", "mxbai-embed-large"]
-    available_models = result.lower()
-    
-    for model in required_models:
-        if model.lower() in available_models:
-            print(f"✅ {model} disponible")
-        else:
-            print(f"❌ {model} no encontrado")
-            return False
-    
-    return True
 
-def test_ollama_connection():
-    """Probar conexión con Ollama"""
-    print("🧪 Probando conexión con Ollama...")
+def install_ollama_windows():
+    """Instala Ollama en Windows"""
+    print_colored("🔧 Instalando Ollama en Windows...", 'blue')
+    
+    # Descargar instalador
+    url = "https://ollama.com/download/OllamaSetup.exe"
+    installer_path = Path("OllamaSetup.exe")
     
     try:
-        # Probar API de modelos
-        response = requests.get("http://localhost:11434/api/tags", timeout=10)
-        if response.status_code == 200:
-            models = response.json()
-            print(f"✅ Conexión exitosa. Modelos disponibles: {len(models.get('models', []))}")
-            return True
-        else:
-            print(f"❌ Error en conexión: {response.status_code}")
-            return False
-    except requests.RequestException as e:
-        print(f"❌ Error de conexión: {e}")
+        print_colored("📥 Descargando instalador...", 'yellow')
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+        
+        with open(installer_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
+        print_colored("🚀 Ejecutando instalador...", 'blue')
+        print_colored("⚠️  IMPORTANTE: Acepta todas las opciones por defecto en el instalador", 'yellow')
+        
+        # Ejecutar instalador
+        subprocess.run([str(installer_path)], check=True)
+        
+        # Limpiar
+        if installer_path.exists():
+            installer_path.unlink()
+            
+        print_colored("✅ Ollama instalado exitosamente", 'green')
+        return True
+        
+    except Exception as e:
+        print_colored(f"❌ Error instalando Ollama: {e}", 'red')
         return False
 
-def create_ollama_config():
-    """Crear archivo de configuración para Ollama"""
-    config_content = """# Configuración de Ollama para PromptGen
-
-# Modelos requeridos:
-# - llama3.2:3b (modelo principal para chat)
-# - mxbai-embed-large (modelo para embeddings)
-
-# Comandos útiles:
-# ollama list                    # Listar modelos instalados
-# ollama pull <modelo>           # Descargar modelo
-# ollama run <modelo>            # Ejecutar modelo
-# ollama ps                      # Ver modelos en ejecución
-# ollama serve                   # Iniciar servidor
-
-# URL del servidor: http://localhost:11434
-"""
+def install_ollama_macos():
+    """Instala Ollama en macOS"""
+    print_colored("🔧 Instalando Ollama en macOS...", 'blue')
     
-    with open("ollama_config.md", "w", encoding="utf-8") as f:
-        f.write(config_content)
+    try:
+        # Verificar si Homebrew está instalado
+        subprocess.run(['brew', '--version'], capture_output=True, check=True)
+        
+        # Instalar con Homebrew
+        print_colored("📦 Instalando con Homebrew...", 'yellow')
+        subprocess.run(['brew', 'install', 'ollama'], check=True)
+        
+        print_colored("✅ Ollama instalado exitosamente", 'green')
+        return True
+        
+    except subprocess.CalledProcessError:
+        print_colored("⚠️  Homebrew no encontrado. Usando instalador manual...", 'yellow')
+        
+        # Instalación manual
+        try:
+            cmd = 'curl -fsSL https://ollama.com/install.sh | sh'
+            subprocess.run(cmd, shell=True, check=True)
+            print_colored("✅ Ollama instalado exitosamente", 'green')
+            return True
+        except Exception as e:
+            print_colored(f"❌ Error instalando Ollama: {e}", 'red')
+            return False
+
+def install_ollama_linux():
+    """Instala Ollama en Linux"""
+    print_colored("🔧 Instalando Ollama en Linux...", 'blue')
     
-    print("✅ Archivo de configuración creado: ollama_config.md")
+    try:
+        cmd = 'curl -fsSL https://ollama.com/install.sh | sh'
+        subprocess.run(cmd, shell=True, check=True)
+        print_colored("✅ Ollama instalado exitosamente", 'green')
+        return True
+    except Exception as e:
+        print_colored(f"❌ Error instalando Ollama: {e}", 'red')
+        return False
+
+def start_ollama():
+    """Inicia el servicio de Ollama"""
+    print_colored("🚀 Iniciando servicio de Ollama...", 'blue')
+    
+    system = platform.system().lower()
+    
+    try:
+        if system == 'windows':
+            # En Windows, Ollama se inicia automáticamente como servicio
+            subprocess.Popen(['ollama', 'serve'], 
+                           creationflags=subprocess.CREATE_NO_WINDOW)
+        else:
+            # En macOS y Linux
+            subprocess.Popen(['ollama', 'serve'], 
+                           stdout=subprocess.DEVNULL, 
+                           stderr=subprocess.DEVNULL)
+        
+        # Esperar a que el servicio esté listo
+        print_colored("⏳ Esperando a que el servicio esté listo...", 'yellow')
+        for i in range(10):
+            if is_ollama_running():
+                print_colored("✅ Servicio de Ollama iniciado exitosamente", 'green')
+                return True
+            time.sleep(2)
+        
+        print_colored("⚠️  El servicio tardó en iniciarse, pero debería estar funcionando", 'yellow')
+        return True
+        
+    except Exception as e:
+        print_colored(f"❌ Error iniciando Ollama: {e}", 'red')
+        return False
+
+def install_model(model_name="llama3.2"):
+    """Instala un modelo de Ollama"""
+    print_colored(f"📚 Instalando modelo {model_name}...", 'blue')
+    
+    try:
+        # Verificar modelos disponibles
+        available_models = ["llama3.2", "llama3.2:1b", "llama3.1", "qwen2.5", "mistral"]
+        
+        if model_name not in available_models:
+            print_colored(f"⚠️  Modelo {model_name} no encontrado. Usando llama3.2:1b", 'yellow')
+            model_name = "llama3.2:1b"
+        
+        print_colored(f"📥 Descargando {model_name}... (esto puede tardar varios minutos)", 'yellow')
+        
+        # Ejecutar comando de instalación
+        process = subprocess.Popen(
+            ['ollama', 'pull', model_name],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        # Mostrar progreso
+        while True:
+            output = process.stdout.readline()
+            if output == '' and process.poll() is not None:
+                break
+            if output:
+                print(f"  {output.strip()}")
+        
+        if process.returncode == 0:
+            print_colored(f"✅ Modelo {model_name} instalado exitosamente", 'green')
+            return True
+        else:
+            print_colored(f"❌ Error instalando modelo {model_name}", 'red')
+            return False
+            
+    except Exception as e:
+        print_colored(f"❌ Error instalando modelo: {e}", 'red')
+        return False
+
+def test_ollama():
+    """Prueba la instalación de Ollama"""
+    print_colored("🧪 Probando instalación de Ollama...", 'blue')
+    
+    try:
+        # Verificar que está corriendo
+        if not is_ollama_running():
+            print_colored("❌ Ollama no está ejecutándose", 'red')
+            return False
+        
+        # Probar una consulta simple
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "llama3.2",
+                "prompt": "Hello! Say 'Ollama is working' if you can read this.",
+                "stream": False
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            print_colored(f"✅ Respuesta: {result.get('response', 'Sin respuesta')}", 'green')
+            return True
+        else:
+            print_colored(f"❌ Error en la respuesta: {response.status_code}", 'red')
+            return False
+            
+    except Exception as e:
+        print_colored(f"❌ Error probando Ollama: {e}", 'red')
+        return False
+
+def create_start_script():
+    """Crea un script para iniciar Ollama fácilmente"""
+    system = platform.system().lower()
+    
+    if system == 'windows':
+        script_content = '''@echo off
+echo Iniciando Ollama...
+ollama serve
+pause
+'''
+        script_path = Path("start_ollama.bat")
+        
+    else:  # macOS y Linux
+        script_content = '''#!/bin/bash
+echo "Iniciando Ollama..."
+ollama serve &
+echo "Ollama iniciado en segundo plano"
+echo "Para detener: pkill ollama"
+'''
+        script_path = Path("start_ollama.sh")
+    
+    try:
+        with open(script_path, 'w') as f:
+            f.write(script_content)
+        
+        if system != 'windows':
+            os.chmod(script_path, 0o755)
+        
+        print_colored(f"✅ Script creado: {script_path}", 'green')
+        return True
+        
+    except Exception as e:
+        print_colored(f"❌ Error creando script: {e}", 'red')
+        return False
 
 def main():
-    """Función principal del script"""
-    print("🤖 PromptGen - Configurador de Ollama")
-    print("=" * 50)
+    """Función principal"""
+    print_colored("🔧 INSTALADOR AUTOMÁTICO DE OLLAMA", 'cyan')
+    print_colored("=" * 50, 'cyan')
     
-    # Verificar si Ollama ya está instalado
-    if check_ollama_installed():
-        print("✅ Ollama ya está instalado")
+    # Verificar conexión a internet
+    if not check_internet():
+        print_colored("❌ No hay conexión a internet", 'red')
+        return
+    
+    # Detectar sistema operativo
+    system = platform.system().lower()
+    print_colored(f"🖥️  Sistema operativo detectado: {system}", 'blue')
+    
+    # Verificar si ya está instalado
+    if is_ollama_installed():
+        print_colored("✅ Ollama ya está instalado", 'green')
     else:
-        print("📦 Ollama no está instalado. Instalando...")
-        if not install_ollama():
-            print("❌ Error durante la instalación")
-            return False
+        print_colored("📦 Ollama no está instalado. Instalando...", 'yellow')
+        
+        # Instalar según el sistema
+        if system == 'windows':
+            success = install_ollama_windows()
+        elif system == 'darwin':  # macOS
+            success = install_ollama_macos()
+        elif system == 'linux':
+            success = install_ollama_linux()
+        else:
+            print_colored(f"❌ Sistema operativo no soportado: {system}", 'red')
+            return
+        
+        if not success:
+            print_colored("❌ Error durante la instalación", 'red')
+            return
     
-    # Verificar/iniciar servicio
-    if not start_ollama_service():
-        print("🔄 Intentando iniciar Ollama manualmente...")
-        print("💡 Ejecuta 'ollama serve' en otra terminal y luego ejecuta este script nuevamente")
-        return False
+    # Verificar si está corriendo
+    if not is_ollama_running():
+        print_colored("🚀 Iniciando Ollama...", 'blue')
+        if not start_ollama():
+            print_colored("❌ Error iniciando Ollama", 'red')
+            return
+    else:
+        print_colored("✅ Ollama ya está ejecutándose", 'green')
     
-    # Descargar modelos
-    if not download_models():
-        print("❌ Error descargando modelos")
-        return False
+    # Verificar modelos instalados
+    try:
+        response = requests.get("http://localhost:11434/api/tags", timeout=10)
+        if response.status_code == 200:
+            models = response.json().get('models', [])
+            if models:
+                print_colored(f"📚 Modelos instalados: {len(models)}", 'green')
+                for model in models[:3]:  # Mostrar solo los primeros 3
+                    print_colored(f"  • {model['name']}", 'white')
+            else:
+                print_colored("📚 No hay modelos instalados. Instalando modelo por defecto...", 'yellow')
+                install_model("llama3.2:1b")
+        else:
+            print_colored("⚠️  No se pudieron verificar los modelos", 'yellow')
+    except:
+        print_colored("⚠️  Error verificando modelos", 'yellow')
     
-    # Verificar modelos
-    if not verify_models():
-        print("❌ Error verificando modelos")
-        return False
+    # Crear script de inicio
+    create_start_script()
     
-    # Probar conexión
-    if not test_ollama_connection():
-        print("❌ Error en conexión con Ollama")
-        return False
-    
-    # Crear configuración
-    create_ollama_config()
-    
-    print("\n🎉 ¡Configuración completada exitosamente!")
-    print("=" * 50)
-    print("✅ Ollama instalado y configurado")
-    print("✅ Modelos descargados")
-    print("✅ Servicio ejecutándose")
-    print("\n🚀 Ahora puedes ejecutar el sistema PromptGen:")
-    print("   1. python api_server.py")
-    print("   2. npm run dev")
-    print("   3. Visita http://localhost:3000/chat")
-    
-    return True
+    # Probar instalación
+    if test_ollama():
+        print_colored("\n🎉 ¡INSTALACIÓN COMPLETADA EXITOSAMENTE!", 'green')
+        print_colored("=" * 50, 'green')
+        print_colored("🚀 Ollama está funcionando correctamente", 'green')
+        print_colored("🌐 Puedes usar el chat ahora", 'green')
+        print_colored("📝 Si necesitas reiniciar Ollama, usa el script creado", 'blue')
+    else:
+        print_colored("\n⚠️  INSTALACIÓN COMPLETADA CON ADVERTENCIAS", 'yellow')
+        print_colored("=" * 50, 'yellow')
+        print_colored("🔧 Ollama está instalado pero puede necesitar configuración manual", 'yellow')
+        print_colored("📖 Consulta la documentación en https://ollama.com/download", 'blue')
 
 if __name__ == "__main__":
-    try:
-        success = main()
-        sys.exit(0 if success else 1)
-    except KeyboardInterrupt:
-        print("\n❌ Instalación cancelada por el usuario")
-        sys.exit(1)
-    except Exception as e:
-        print(f"❌ Error inesperado: {e}")
-        sys.exit(1) 
+    main() 

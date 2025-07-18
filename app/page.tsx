@@ -30,6 +30,8 @@ import {
   ArrowDown,
   Loader2,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
@@ -50,8 +52,8 @@ interface GeneratedPrompt {
   qualityReport?: string
   interpretedKeywords?: string
   structuralFeedback?: string
-  variations?: string[]
-  ideas?: string[]
+  variations?: (string | { prompt: string })[]
+  ideas?: (string | { prompt_suggestion: string })[]
   iterativeResult?: IterativeImprovementResult
 }
 
@@ -533,6 +535,22 @@ export default function PromptGenPage() {
             isSidebarMinimized ? "lg:w-16" : "lg:w-80"
           )}
         >
+          {/* Botón de expandir/colapsar centrado verticalmente */}
+          <div className="hidden lg:block absolute top-1/2 -translate-y-1/2 -right-3 z-10">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSidebarMinimized(!isSidebarMinimized)}
+              className="h-6 w-6 p-0 rounded-full bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105"
+              title={isSidebarMinimized ? "Expandir historial" : "Minimizar historial"}
+            >
+              {isSidebarMinimized ? (
+                <ChevronRight className="h-3 w-3 text-gray-600 dark:text-gray-400" />
+              ) : (
+                <ChevronLeft className="h-3 w-3 text-gray-600 dark:text-gray-400" />
+              )}
+            </Button>
+          </div>
           <div className="p-4 h-full flex flex-col">
             <div className="flex items-center mb-4">
               <div className={cn("flex-grow flex items-center gap-2", isSidebarMinimized && "justify-center")}>
@@ -545,11 +563,6 @@ export default function PromptGenPage() {
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 )}
-                <Button variant="ghost" size="sm" onClick={() => setIsSidebarMinimized(!isSidebarMinimized)} className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hidden lg:inline-flex" title={isSidebarMinimized ? "Expandir historial" : "Minimizar historial"}>
-                  <i className={`transition-transform duration-300 ${isSidebarMinimized ? 'rotate-180' : ''}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                  </i>
-                </Button>
                 <Button variant="ghost" size="sm" onClick={() => setIsMobileHistoryOpen(false)} className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white lg:hidden" title="Cerrar historial">
                   <X className="w-4 h-4" />
                 </Button>
@@ -662,10 +675,10 @@ export default function PromptGenPage() {
                         {item.variations && item.variations.length > 1 && (currentGeneratedItem?.id !== item.id || thinkingSteps.some((s) => s.startsWith("Variaciones generadas"))) && (
                           <CollapsibleCard title="Otras Variaciones Sugeridas" icon={<PenTool className="w-4 h-4" />} className="bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-700" titleClassName="text-indigo-700 dark:text-indigo-400" initialOpen={false}>
                             <div className="p-3 text-xs space-y-1">
-                              {item.variations.filter((v) => (typeof v === 'object' ? v.prompt : v) !== item.generatedPrompt).map((variation, index) => (
+                              {item.variations.filter((v) => (typeof v === 'object' && 'prompt' in v ? v.prompt : v) !== item.generatedPrompt).map((variation, index) => (
                                 <div key={index} className="flex items-start gap-2 p-1.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-800/50">
-                                  <p className="flex-grow whitespace-pre-wrap">- {typeof variation === 'object' ? variation.prompt : variation}</p>
-                                  <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={() => copyToClipboard(typeof variation === 'object' ? variation.prompt : variation)}>
+                                  <p className="flex-grow whitespace-pre-wrap">- {typeof variation === 'object' && 'prompt' in variation ? variation.prompt : variation}</p>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={() => copyToClipboard(typeof variation === 'object' && 'prompt' in variation ? variation.prompt : variation as string)}>
                                     <Copy className="w-2.5 h-2.5" />
                                   </Button>
                                 </div>
@@ -678,7 +691,7 @@ export default function PromptGenPage() {
                             <div className="p-3 text-xs space-y-1">
                               <ul className="list-disc list-inside">
                                 {item.ideas.map((idea, index) => (
-                                  <li key={index}>{typeof idea === 'object' ? idea.prompt_suggestion : idea}</li>
+                                  <li key={index}>{typeof idea === 'object' && 'prompt_suggestion' in idea ? idea.prompt_suggestion : idea}</li>
                                 ))}
                               </ul>
                             </div>
