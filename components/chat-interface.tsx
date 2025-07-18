@@ -629,9 +629,11 @@ export default function ChatInterface() {
                                 <div className="flex-shrink-0">
                                   {getFileTypeIcon(doc.file_type)}
                                 </div>
-                                <span className="font-medium text-xs truncate text-white block" title={doc.filename}>
-                                  {doc.filename}
-                                </span>
+                                <div className="flex-1 min-w-0 overflow-x-auto">
+                                  <span className="font-medium text-xs text-white whitespace-nowrap" title={doc.filename}>
+                                    {doc.filename}
+                                  </span>
+                                </div>
                               </div>
                               <div className="flex items-center gap-2 mb-1">
                                 <Badge variant="secondary" className="text-xs bg-slate-600 text-slate-200 flex-shrink-0">
@@ -995,7 +997,9 @@ export default function ChatInterface() {
                               {message.sources.map((source, index) => (
                                 <div key={index} className="flex items-center gap-2 text-xs bg-slate-700/30 p-2 rounded">
                                   {getFileTypeIcon(source.file_type || 'unknown')}
-                                  <span className="font-medium text-slate-300 truncate">{source.filename}</span>
+                                  <div className="flex-1 min-w-0 overflow-x-auto">
+                                    <span className="font-medium text-slate-300 whitespace-nowrap" title={source.filename}>{source.filename}</span>
+                                  </div>
                                   <span className="text-slate-400 flex-shrink-0">
                                     ({source.chunk_index})
                                   </span>

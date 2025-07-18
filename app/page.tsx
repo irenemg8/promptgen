@@ -618,9 +618,11 @@ export default function PromptGenPage() {
                       {item.files && item.files.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {item.files.map((file, index) => (
-                            <Badge key={index} variant="secondary" className="bg-white/20 text-white text-xs">
+                            <Badge key={index} variant="secondary" className="bg-white/20 text-white text-xs flex items-center gap-1 min-w-0">
                               {getFileIcon(file)}
-                              <span className="ml-1">{file.name}</span>
+                              <div className="max-w-[80px] overflow-x-auto">
+                                <span className="whitespace-nowrap text-xs ml-1" title={file.name}>{file.name}</span>
+                              </div>
                             </Badge>
                           ))}
                         </div>
@@ -850,10 +852,12 @@ export default function PromptGenPage() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {uploadedFiles.map((file, index) => (
-                          <Badge key={index} variant="secondary" className="bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 flex items-center gap-1">
+                          <Badge key={index} variant="secondary" className="bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 flex items-center gap-1 min-w-0">
                             {getFileIcon(file)}
-                            <span className="max-w-[100px] truncate">{file.name}</span>
-                            <button onClick={() => removeFile(index)} className="ml-1 hover:text-red-500 dark:hover:text-red-400">×</button>
+                            <div className="max-w-[120px] overflow-x-auto">
+                              <span className="whitespace-nowrap text-xs" title={file.name}>{file.name}</span>
+                            </div>
+                            <button onClick={() => removeFile(index)} className="ml-1 hover:text-red-500 dark:hover:text-red-400 flex-shrink-0">×</button>
                           </Badge>
                         ))}
                       </div>

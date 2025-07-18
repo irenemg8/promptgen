@@ -42,7 +42,7 @@ class SimpleDocumentSystem:
     
     def __init__(self, 
                  storage_path: str = "./simple_documents",
-                 model_name: str = "llama3.2:3b",
+                 model_name: str = "llama3.2:1b",
                  embeddings_model: str = "mxbai-embed-large",
                  encryption_key: Optional[str] = None):
         """
@@ -301,11 +301,155 @@ class SimpleDocumentSystem:
             if os.path.exists(file_path):
                 os.remove(file_path)
     
+    def _generate_fallback_response(self, query: str, context: str, error_msg: str) -> str:
+        """Generar respuesta de emergencia cuando Ollama no está disponible"""
+        
+        # Detectar tipo de error
+        if "404" in error_msg or "not found" in error_msg.lower():
+            error_type = "Modelo no encontrado"
+            solution = "Necesitas instalar el modelo. Ejecuta: ollama pull llama3.2:1b"
+        elif "connection" in error_msg.lower() or "connect" in error_msg.lower():
+            error_type = "Ollama no está ejecutándose"
+            solution = "Inicia Ollama ejecutando: ollama serve"
+        elif "ollama" in error_msg.lower():
+            error_type = "Ollama no está instalado"
+            solution = "Instala Ollama desde: https://ollama.com/download"
+        else:
+            error_type = "Error desconocido"
+            solution = "Verifica que Ollama esté instalado y funcionando"
+        
+        # Intentar generar respuesta básica basada en el contexto
+        if context:
+            # Extraer información relevante del contexto
+            context_lines = context.split('\n')
+            relevant_info = []
+            
+            for line in context_lines:
+                line = line.strip()
+                if line and not line.startswith('Documento:') and len(line) > 20:
+                    relevant_info.append(line)
+            
+            if relevant_info:
+                basic_answer = f"Basándome en los documentos encontrados, aquí está la información relevante:\n\n"
+                basic_answer += "\n\n".join(relevant_info[:3])  # Mostrar máximo 3 fragmentos
+                basic_answer += f"\n\n⚠️ **Respuesta sin IA**: {error_type}. {solution}"
+            else:
+                basic_answer = f"Encontré información en los documentos, pero no puedo procesarla porque {error_type.lower()}.\n\n{solution}"
+        else:
+            basic_answer = f"No encontré información relevante en los documentos.\n\n⚠️ **Nota**: {error_type}. {solution}"
+        
+        return basic_answer
+
+    def _is_file_management_question(self, query: str) -> bool:
+        """Detectar si la pregunta es sobre gestión de archivos"""
+        query_lower = query.lower()
+        
+        file_management_keywords = [
+            "qué archivos", "que archivos", "cuáles archivos", "cuales archivos",
+            "archivos tienes", "archivos cargados", "archivos subidos",
+            "archivos disponibles", "lista de archivos", "documentos tienes",
+            "documentos cargados", "documentos subidos", "documentos disponibles",
+            "existe archivo", "existe documento", "tienes archivo", "tienes documento",
+            "hay archivo", "hay documento", "cuántos archivos", "cuantos archivos",
+            "cuántos documentos", "cuantos documentos", "lista archivos",
+            "listar archivos", "mostrar archivos", "ver archivos",
+            "archivos has", "documentos has", "archivos guardados",
+            "documentos guardados", "archivos en memoria", "documentos en memoria"
+        ]
+        
+        return any(keyword in query_lower for keyword in file_management_keywords)
+    
+    def _generate_file_management_response(self, query: str) -> Dict[str, Any]:
+        """Generar respuesta para preguntas sobre gestión de archivos"""
+        query_lower = query.lower()
+        
+        # Obtener información de archivos
+        documents = self.get_documents_list()
+        total_docs = len(documents)
+        
+        if total_docs == 0:
+            return {
+                "answer": "No tienes archivos cargados actualmente. Puedes subir archivos arrastrándolos al área de carga o usando el botón 'Seleccionar Archivo'.",
+                "sources": [],
+                "query": query,
+                "response_time": 0,
+                "timestamp": datetime.now().isoformat(),
+                "from_cache": False,
+                "file_management_response": True
+            }
+        
+        # Detectar tipo específico de pregunta
+        if any(keyword in query_lower for keyword in ["existe", "tienes", "hay"]):
+            # Pregunta sobre archivo específico
+            mentioned_files = self._extract_mentioned_files(query)
+            if mentioned_files:
+                found_files = []
+                for doc in documents:
+                    for mentioned in mentioned_files:
+                        if mentioned.lower() in doc["filename"].lower():
+                            found_files.append(doc)
+                            break
+                
+                if found_files:
+                    files_list = "\n".join([f"✅ {doc['filename']} ({doc['file_type']}, {doc.get('chunks_count', 0)} fragmentos)" for doc in found_files])
+                    answer = f"Sí, encontré estos archivos relacionados:\n\n{files_list}"
+                else:
+                    answer = f"No encontré archivos que coincidan con '{', '.join(mentioned_files)}'. Los archivos disponibles son los que te muestro más abajo."
+            else:
+                answer = "Por favor, especifica el nombre del archivo que buscas."
+        else:
+            # Pregunta general sobre archivos
+            answer = f"Tienes {total_docs} archivo(s) cargado(s) actualmente:"
+        
+        # Construir lista de archivos
+        files_info = []
+        for doc in documents:
+            files_info.append(
+                f"📄 **{doc['filename']}**\n"
+                f"   - Tipo: {doc['file_type']}\n"
+                f"   - Fragmentos: {doc.get('chunks_count', 0)}\n"
+                f"   - Subido: {doc.get('upload_date', 'Fecha no disponible')}"
+            )
+        
+        if files_info:
+            answer += "\n\n" + "\n\n".join(files_info)
+        
+        # Añadir información útil
+        answer += f"\n\n💡 **Consejos:**\n"
+        answer += f"- Puedes preguntar sobre el contenido de cualquier archivo\n"
+        answer += f"- Usa frases como 'según el archivo X' para buscar en archivos específicos\n"
+        answer += f"- Puedes subir más archivos arrastrándolos al área de carga"
+        
+        # Crear fuentes
+        sources = []
+        for doc in documents:
+            sources.append({
+                "filename": doc["filename"],
+                "content": f"Archivo {doc['file_type']} con {doc.get('chunks_count', 0)} fragmentos procesados",
+                "chunk_index": 0,
+                "file_type": doc["file_type"],
+                "relevance": 1.0
+            })
+        
+        return {
+            "answer": answer,
+            "sources": sources,
+            "query": query,
+            "response_time": 0.1,
+            "timestamp": datetime.now().isoformat(),
+            "from_cache": False,
+            "file_management_response": True
+        }
+
     async def query_documents(self, query: str, k: int = 5) -> Dict[str, Any]:
         """Consultar documentos"""
         start_time = time.time()
         
         try:
+            # Verificar si es una pregunta sobre gestión de archivos
+            if self._is_file_management_question(query):
+                return self._generate_file_management_response(query)
+            
             # Verificar caché
             cache_key = f"query_{hashlib.md5(query.encode()).hexdigest()}"
             
@@ -316,28 +460,58 @@ class SimpleDocumentSystem:
                 result["response_time"] = time.time() - start_time
                 return result
             
+            # Detectar si el usuario menciona archivos específicos
+            mentioned_files = self._extract_mentioned_files(query)
+            load_all_files = self._should_load_all_files(query)
+            
             # Buscar documentos relevantes (búsqueda simple por texto)
             relevant_chunks = []
+            documents_used = set()  # Para evitar duplicados por archivo
             
             for doc_id, metadata in self.documents_metadata.items():
+                filename = metadata.get("filename", "")
+                
+                # Filtrar por archivos específicos si se mencionan
+                if mentioned_files and not load_all_files:
+                    if not any(mentioned_file.lower() in filename.lower() for mentioned_file in mentioned_files):
+                        continue
+                
                 if "chunks" in metadata:
+                    # Buscar el mejor chunk por archivo para evitar duplicados
+                    best_chunk = None
+                    best_relevance = 0
+                    
                     for i, chunk in enumerate(metadata["chunks"]):
                         # Búsqueda simple por palabras clave
-                        if any(word.lower() in chunk.lower() for word in query.split()):
-                            relevant_chunks.append({
+                        query_words = query.lower().split()
+                        chunk_lower = chunk.lower()
+                        
+                        # Calcular relevancia simple
+                        relevance = sum(1 for word in query_words if word in chunk_lower)
+                        
+                        if relevance > 0 and relevance > best_relevance:
+                            best_relevance = relevance
+                            best_chunk = {
                                 "doc_id": doc_id,
-                                "filename": metadata["filename"],
+                                "filename": filename,
                                 "chunk_index": i,
                                 "content": chunk,
-                                "file_type": metadata["file_type"]
-                            })
+                                "file_type": metadata["file_type"],
+                                "relevance": relevance
+                            }
+                    
+                    # Solo agregar el mejor chunk de cada archivo
+                    if best_chunk and filename not in documents_used:
+                        relevant_chunks.append(best_chunk)
+                        documents_used.add(filename)
             
-            # Limitar resultados
+            # Ordenar por relevancia y limitar resultados
+            relevant_chunks.sort(key=lambda x: x.get("relevance", 0), reverse=True)
             relevant_chunks = relevant_chunks[:k]
             
             # Construir contexto
             context = "\n\n".join([
-                f"Documento: {chunk['filename']}\n{chunk['content'][:500]}..."
+                f"Documento: {chunk['filename']}\n{chunk['content'][:800]}..."
                 for chunk in relevant_chunks
             ])
             
@@ -361,18 +535,30 @@ class SimpleDocumentSystem:
                     answer = response['response']
                 except Exception as e:
                     logger.error(f"Error con Ollama: {e}")
-                    answer = f"Error generando respuesta: {str(e)}"
+                    # Intentar con modelo alternativo
+                    try:
+                        response = ollama.generate(
+                            model="llama3.2:1b",  # Modelo más pequeño como fallback
+                            prompt=prompt,
+                            stream=False
+                        )
+                        answer = response['response']
+                    except Exception as e2:
+                        logger.error(f"Error con modelo alternativo: {e2}")
+                        # Generar respuesta informativa sin IA
+                        answer = self._generate_fallback_response(query, context, str(e))
             else:
                 answer = "No encontré información relevante en los documentos para responder tu pregunta."
             
-            # Procesar fuentes
+            # Procesar fuentes (una por archivo)
             sources = []
             for chunk in relevant_chunks:
                 sources.append({
                     "filename": chunk["filename"],
                     "content": chunk["content"][:200] + "...",
                     "chunk_index": chunk["chunk_index"],
-                    "file_type": chunk["file_type"]
+                    "file_type": chunk["file_type"],
+                    "relevance": chunk.get("relevance", 0)
                 })
             
             response_time = time.time() - start_time
@@ -383,14 +569,16 @@ class SimpleDocumentSystem:
                 "query": query,
                 "response_time": response_time,
                 "timestamp": datetime.now().isoformat(),
-                "from_cache": False
+                "from_cache": False,
+                "files_filtered": len(mentioned_files) if mentioned_files and not load_all_files else 0,
+                "load_all_requested": load_all_files
             }
             
             # Guardar en caché
             if response_time < 8.0:
                 self.memory_cache[cache_key] = result
             
-            logger.info(f"🔍 Consulta procesada: {response_time:.2f}s ({len(sources)} fuentes)")
+            logger.info(f"🔍 Consulta procesada: {response_time:.2f}s ({len(sources)} fuentes únicas)")
             
             return result
             
@@ -402,6 +590,39 @@ class SimpleDocumentSystem:
                 "response_time": time.time() - start_time,
                 "timestamp": datetime.now().isoformat()
             }
+    
+    def _extract_mentioned_files(self, query: str) -> List[str]:
+        """Extraer nombres de archivos mencionados en la consulta"""
+        mentioned_files = []
+        query_lower = query.lower()
+        
+        # Buscar archivos por nombre en los metadatos
+        for doc_id, metadata in self.documents_metadata.items():
+            filename = metadata.get("filename", "")
+            filename_base = filename.split('.')[0].lower()  # Sin extensión
+            
+            # Buscar por nombre completo o parcial
+            if filename.lower() in query_lower or filename_base in query_lower:
+                mentioned_files.append(filename)
+            
+            # Buscar por palabras clave del nombre del archivo
+            filename_words = filename_base.replace('-', ' ').replace('_', ' ').split()
+            for word in filename_words:
+                if len(word) > 3 and word in query_lower:
+                    if filename not in mentioned_files:
+                        mentioned_files.append(filename)
+        
+        return mentioned_files
+    
+    def _should_load_all_files(self, query: str) -> bool:
+        """Determinar si se deben cargar todos los archivos"""
+        query_lower = query.lower()
+        all_keywords = [
+            "todas", "todos", "all", "everything", "todo", "completo", 
+            "general", "resumen", "total", "conjunto", "global"
+        ]
+        
+        return any(keyword in query_lower for keyword in all_keywords)
     
     def get_documents_list(self) -> List[Dict[str, Any]]:
         """Obtener lista de documentos"""
